@@ -1,3 +1,3 @@
 # CEFETinder ❤️
 
-<img width="499" height="116" alt="CEFETinder" src="https://github.com/user-attachments/assets/e7fd562f-5676-44cd-97d1-a83c0fee56df" />
+<img width="500" height="106" alt="CEFETinder (1)" src="https://github.com/user-attachments/assets/c634f3f1-9bb1-42d4-a8bb-0401de5fab6f" />
