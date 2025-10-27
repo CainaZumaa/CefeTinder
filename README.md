@@ -41,19 +41,6 @@ O projeto utiliza uma arquitetura de microsserviços com os seguintes componente
 - Supabase (PostgreSQL)
 - WebSocket
 
-## Configuração
-
-1. Clone o repositório
-2. Copie `env.example` para `.env` e configure as variáveis
-3. Instale as dependências:
-   ```bash
-   npm install
-   ```
-4. Execute o projeto:
-   ```bash
-   npm run dev
-   ```
-
 ## Funcionalidades
 
 - Filtros por idade, gênero e interesses
@@ -62,24 +49,8 @@ O projeto utiliza uma arquitetura de microsserviços com os seguintes componente
 - Gerenciamento de sessões ativas
 - Sistema de matchmaking
 
-## Estrutura do Projeto
-
-```
-src/
-├── gateway/           # Gateway GraphQL
-│   ├── resolvers/     # Resolvers GraphQL
-│   └── server.ts      # Servidor principal
-├── services/          # Microsserviços
-│   ├── user/          # User Service
-│   ├── match/         # Match Service
-│   └── notification/  # Notification Service
-├── config/            # Configurações
-└── types/             # Tipos TypeScript
-```
-
-## Próximos Passos
+## To-do
 
 - Implementar Kong API Gateway
 - Configurar comunicação gRPC entre serviços
-- Adicionar autenticação com Supabase Auth
 - Implementar Docker e deploy
