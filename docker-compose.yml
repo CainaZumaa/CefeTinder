@@ -1,0 +1,141 @@
+services:
+  kong:
+    image: kong:latest
+    container_name: cefet-tinder-kong
+    restart: always
+    networks:
+      - cefet-tinder-network
+    ports:
+      - "8000:8000"
+      - "8443:8443"
+      - "8001:8001"
+      - "8444:8444"
+    environment:
+      KONG_DATABASE: "off"
+      KONG_PROXY_LISTEN: "0.0.0.0:8000"
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+      KONG_DECLARATIVE_CONFIG: /usr/local/kong/declarative/kong.yml
+    volumes:
+      - ./infra/kong/kong.yml:/usr/local/kong/declarative/kong.yml
+    depends_on:
+      - graphql-service
+
+  graphql-service:
+    build:
+      context: .
+    container_name: cefet-tinder-graphql-server
+    restart: always
+    networks:
+      - cefet-tinder-network
+    environment:
+      USER_SERVICE_ADDRESS: "user-service:50051"
+      MATCH_SERVICE_ADDRESS: "match-service:50052" 
+    depends_on:
+      - user-service
+      - match-service
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    command: sh -c "npm run start:graphql"
+    
+  user-service:
+    build:
+      context: .
+    container_name: cefet-tinder-user-service
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: "postgresql://user:secret@db-users:5432/users"
+      USER_SERVICE_ADDRESS: "0.0.0.0:50051"
+    restart: always
+    expose:
+      - "50051"
+    networks:
+      - cefet-tinder-network
+    depends_on:
+      - db-users
+    command: sh -c "npm run start:grpc:user-service"
+
+  match-service:
+    build:
+      context: .
+    container_name: cefet-tinder-match-service
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: "postgresql://user:secret@db-match:5432/match"
+      MATCH_SERVICE_ADDRESS: "0.0.0.0:50052"
+      NOTIFICATION_SERVICE_URL: "http://notification-service:8080"
+    restart: always
+    expose:
+      - "50052"
+    networks:
+      - cefet-tinder-network
+    depends_on:
+      - db-match
+      - notification-service
+    command: sh -c "npm run start:grpc:match-service"
+
+  notification-service:
+    build:
+      context: .
+    container_name: cefet-tinder-notification-service
+    restart: always
+    expose:
+      - "8080"
+    networks:
+      - cefet-tinder-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    command: sh -c "npm run start:socket"
+
+  db-users:
+    image: postgres:16
+    container_name: cefet-tinder-db-users
+    restart: always
+    networks:
+      - cefet-tinder-network
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: users
+    volumes:
+      - db-users-data:/var/lib/postgresql/data
+      - ./infra/scripts/user.sql:/docker-entrypoint-initdb.d/init.sql
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+  
+  db-match:
+    image: postgres:16
+    container_name: cefet-tinder-db-match
+    restart: always
+    networks:
+      - cefet-tinder-network
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: match
+    volumes:
+      - db-match-data:/var/lib/postgresql/data
+      - ./infra/scripts/match.sql:/docker-entrypoint-initdb.d/init.sql
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+networks:
+  cefet-tinder-network:
+    driver: bridge
+  
+volumes:
+  db-users-data:
+  db-match-data:
