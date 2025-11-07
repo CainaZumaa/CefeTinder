@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package match;
+
+service MatchService {
+   rpc LikeUser(LikeUserRequest) returns (Match);
+   rpc DislikeUser(DislikeUserRequest) returns (Empty); 
+   rpc GetMatches(GetMatchesRequest) returns (Matches); 
+}
+
+message LikeUserRequest {
+   string userId = 1;  
+   string targetUserId = 2;
+   bool isMatchLike = 3;
+} 
+
+message DislikeUserRequest {
+    string userId = 1;
+    string targetUserId = 2;
+}
+
+message GetMatchesRequest {
+   string userId = 1; 
+}
+
+message Match {
+    string id = 1;
+    string user1Id = 2;
+    string user2Id = 3;
+    bool user1Liked = 4;
+    bool user2Liked = 5;
+    bool isSuperLike = 6;
+    string matchedAt = 7;
+    string createdAt = 8;
+    string updatedAt = 9;
+}
+
+message Matches {
+   repeated Match matches = 1; 
+}
+
+message Empty {}

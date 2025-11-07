@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package user;
+
+service UserService {
+  rpc GetUser (GetUserRequest) returns (User);
+  rpc CreateUser (CreateUserRequest) returns (User);
+  rpc GetPotentialMatches (MatchCriteria) returns (PotentialMatches);
+  rpc UpdateUserPreferences (UpdatePreferencesRequest) returns (User);
+}
+
+message User {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+  int32 age = 4;
+  string gender = 5;
+  string bio = 6;
+  repeated string interests = 7;
+  UserPreferences preferences = 8;
+}
+
+message UserPreferences {
+  int32 maxAge = 2;
+  string genderPreference = 3;
+  repeated string interestPreferences = 4;
+}
+
+message GetUserRequest {
+  string userId = 1;
+}
+
+message CreateUserRequest {
+  string name = 1;
+  string email = 2;
+  int32 age = 3;
+  string gender = 4;
+  string bio = 5;
+  repeated string interests = 6;
+  UserPreferences preferences = 7; 
+}
+
+message MatchCriteria {
+  string userId = 1;
+}
+
+message PotentialMatches {
+  repeated User users = 1;
+}
+
+message UpdatePreferencesRequest {
+  string userId = 1;
+  UserPreferences preferences = 2;
+}
