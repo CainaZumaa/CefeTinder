@@ -1,8 +1,9 @@
 import { pool } from "../../config/database";
 import { IUser, IUserPreferences, User } from "../../types";
-import { IUserRepository } from "./interface";
+import { BaseUserRepository } from "./BaseUserRepository";
 
-export class PostgresUserRepository implements IUserRepository {
+// Liskov Substitution: pode ser usado em qqr lugar onde BaseUserRepository é esperado
+export class PostgresUserRepository extends BaseUserRepository {
   async createUser(userData: Partial<IUser>): Promise<User> {
     const result = await pool.query(
       "INSERT INTO users (name, email, age, gender, bio) VALUES ($1, $2, $3, $4, $5) RETURNING *",

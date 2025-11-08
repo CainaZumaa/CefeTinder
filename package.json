@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "Dating app for CEFET students",
   "scripts": {
-    "start": "ts-node src/gateway/server.ts",
-    "dev": "nodemon",
+    "start": "concurrently --kill-others --names \"USER,MATCH,SOCKET,GRAPHQL\" --prefix-colors \"blue,green,yellow,cyan\" \"npm run start:grpc:user-service\" \"npm run start:grpc:match-service\" \"npm run start:socket\" \"npm run start:graphql\"",
+    "dev": "concurrently --kill-others --names \"USER,MATCH,SOCKET,GRAPHQL\" --prefix-colors \"blue,green,yellow,cyan\" \"npm run start:grpc:user-service\" \"npm run start:grpc:match-service\" \"npm run start:socket\" \"npm run start:graphql\"",
     "build": "tsc",
     "migrate": "node-pg-migrate",
     "proto:generate": "grpc_tools_node_protoc --plugin=protoc-gen-ts=./node_modules/.bin/protoc-gen-ts --ts_out=grpc_js:./src/grpc/proto --js_out=import_style=commonjs:./src/grpc/proto --grpc_out=grpc_js:./src/grpc/proto --proto_path=./src/grpc/proto ./src/grpc/proto/*.proto",
@@ -41,6 +41,7 @@
     "@types/pg": "^8.10.9",
     "@types/reflect-metadata": "^0.1.0",
     "@types/ws": "^8.18.1",
+    "concurrently": "^9.2.1",
     "grpc_tools_node_protoc_ts": "^5.3.3",
     "grpc-tools": "^1.13.0",
     "nodemon": "^3.0.1",

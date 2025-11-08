@@ -74,10 +74,10 @@ O Notification Service utiliza WebSocket para enviar notificações em tempo rea
 O frontend pode se conectar ao WebSocket da seguinte forma:
 
 ```javascript
-const socket = new WebSocket('ws://<KONG_API_GATEWAY_URL>/notifications');
-socket.onmessage = function(event) {
-    const notification = JSON.parse(event.data);
-    console.log('Nova notificação:', notification);
+const socket = new WebSocket("ws://<KONG_API_GATEWAY_URL>/notifications");
+socket.onmessage = function (event) {
+  const notification = JSON.parse(event.data);
+  console.log("Nova notificação:", notification);
 };
 ```
 

@@ -1,9 +1,12 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { IUser, IUserPreferences, User } from "../../types";
-import { IUserRepository } from "./interface";
+import { BaseUserRepository } from "./BaseUserRepository";
 
-export class SupabaseUserRepository implements IUserRepository {
-    constructor(private supabase: SupabaseClient) {}
+// Liskov Substitution: pode ser usado em qqr lugar onde BaseUserRepository é esperado
+export class SupabaseUserRepository extends BaseUserRepository {
+  constructor(private supabase: SupabaseClient) {
+    super();
+  }
 
   async createUser(userData: Partial<IUser>): Promise<User> {
     const { data, error } = await this.supabase
@@ -17,14 +20,14 @@ export class SupabaseUserRepository implements IUserRepository {
   }
 
   async getUserById(id: string): Promise<User | null> {
-    const { data, error } = await this.supabase 
+    const { data, error } = await this.supabase
       .from("users")
       .select("*")
       .eq("id", id)
       .single();
 
     if (error) {
-      if (error.code === "PGRST116") return null; // No rows found
+      if (error.code === "PGRST116") return null; // não foi encontrado nenhum registro
       throw error;
     }
     return data as User;
@@ -35,7 +38,7 @@ export class SupabaseUserRepository implements IUserRepository {
     preferences: Partial<IUserPreferences>
   ): Promise<void> {
     // Check if preferences exist
-    const { data: existingPrefs, error: fetchError } = await this.supabase 
+    const { data: existingPrefs, error: fetchError } = await this.supabase
       .from("users_preferences")
       .select("*")
       .eq("user_id", userId)
@@ -45,16 +48,14 @@ export class SupabaseUserRepository implements IUserRepository {
 
     if (!existingPrefs) {
       // Insert new preferences
-      const { error } = await this.supabase
-        .from("users_preferences")
-        .insert([
-          {
-            user_id: userId,
-            min_age: preferences.min_age,
-            max_age: preferences.max_age,
-            gender_preference: preferences.gender_preference,
-          },
-        ]);
+      const { error } = await this.supabase.from("users_preferences").insert([
+        {
+          user_id: userId,
+          min_age: preferences.min_age,
+          max_age: preferences.max_age,
+          gender_preference: preferences.gender_preference,
+        },
+      ]);
       if (error) throw error;
     } else {
       // Update existing preferences
@@ -63,7 +64,8 @@ export class SupabaseUserRepository implements IUserRepository {
         .update({
           min_age: preferences.min_age ?? existingPrefs.min_age,
           max_age: preferences.max_age ?? existingPrefs.max_age,
-          gender_preference: preferences.gender_preference ?? existingPrefs.gender_preference,
+          gender_preference:
+            preferences.gender_preference ?? existingPrefs.gender_preference,
         })
         .eq("user_id", userId);
       if (error) throw error;

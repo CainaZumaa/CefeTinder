@@ -6,13 +6,55 @@ interface ClientConnection {
   ws: WebSocket;
 }
 
+// Open/Closed: abstrai a classe NotificationHandler para que seja possível adicionar novos tipos de notificações sem modificar a classe NotificationService
+export abstract class NotificationHandler {
+  abstract handle(
+    notification: NotificationData,
+    connection: ClientConnection
+  ): void;
+}
+
+export interface NotificationData {
+  type: string;
+  data: any;
+}
+
+// Implementações concretas - extensíveis sem modificar a classe base
+export class MatchNotificationHandler extends NotificationHandler {
+  handle(notification: NotificationData, connection: ClientConnection): void {
+    if (connection.ws.readyState === WebSocket.OPEN) {
+      connection.ws.send(JSON.stringify(notification));
+    }
+  }
+}
+
+export class LikeNotificationHandler extends NotificationHandler {
+  handle(notification: NotificationData, connection: ClientConnection): void {
+    if (connection.ws.readyState === WebSocket.OPEN) {
+      connection.ws.send(JSON.stringify(notification));
+    }
+  }
+}
+
 export class NotificationService {
   private clients: Map<string, ClientConnection> = new Map();
   private wss: WebSocketServer;
+  private handlers: Map<string, NotificationHandler> = new Map();
 
   constructor(wss: WebSocketServer) {
     this.wss = wss;
     this.setupWebSocketServer();
+    this.registerDefaultHandlers();
+  }
+
+  // Open/Closed: pode adicionar novos handlers sem modificar o código existente
+  public registerHandler(type: string, handler: NotificationHandler): void {
+    this.handlers.set(type, handler);
+  }
+
+  private registerDefaultHandlers(): void {
+    this.registerHandler("MATCH", new MatchNotificationHandler());
+    this.registerHandler("LIKE", new LikeNotificationHandler());
   }
 
   private setupWebSocketServer(): void {
@@ -42,7 +84,7 @@ export class NotificationService {
     const user1Connection = this.clients.get(match.user1_id);
     const user2Connection = this.clients.get(match.user2_id);
 
-    const notification = {
+    const notification: NotificationData = {
       type: "MATCH",
       data: {
         matchId: match.id,
@@ -52,11 +94,11 @@ export class NotificationService {
     };
 
     if (user1Connection) {
-      this.sendNotification(user1Connection.ws, notification);
+      this.sendNotificationWithHandler(notification, user1Connection);
     }
 
     if (user2Connection) {
-      this.sendNotification(user2Connection.ws, notification);
+      this.sendNotificationWithHandler(notification, user2Connection);
     }
   }
 
@@ -68,7 +110,7 @@ export class NotificationService {
     const targetConnection = this.clients.get(targetUserId);
 
     if (targetConnection) {
-      const notification = {
+      const notification: NotificationData = {
         type: "LIKE",
         data: {
           fromUserId: userId,
@@ -76,11 +118,27 @@ export class NotificationService {
         },
       };
 
-      this.sendNotification(targetConnection.ws, notification);
+      this.sendNotificationWithHandler(notification, targetConnection);
     }
   }
 
-  private sendNotification(ws: WebSocket, notification: any): void {
+  private sendNotificationWithHandler(
+    notification: NotificationData,
+    connection: ClientConnection
+  ): void {
+    const handler = this.handlers.get(notification.type);
+    if (handler) {
+      handler.handle(notification, connection);
+    } else {
+      // fallback para o comportamento padrão
+      this.sendNotification(connection.ws, notification);
+    }
+  }
+
+  private sendNotification(
+    ws: WebSocket,
+    notification: NotificationData
+  ): void {
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(notification));
     }
