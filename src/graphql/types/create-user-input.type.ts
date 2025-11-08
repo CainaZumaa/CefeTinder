@@ -15,5 +15,5 @@ export class CreateUserInput {
     gender: string;
 
     @Field(() => String, { nullable: true })
-    bio?: string;
+    bio: string;
 }
