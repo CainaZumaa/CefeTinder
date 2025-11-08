@@ -33,6 +33,20 @@ export class SupabaseUserRepository extends BaseUserRepository {
     return data as User;
   }
 
+  async getUserByEmail(email: string): Promise<User | null> {
+    const { data, error } = await this.supabase
+      .from("users")
+      .select("*")
+      .eq("email", email)
+      .single();
+
+    if (error) {
+      if (error.code === "PGRST116") return null; // não foi encontrado nenhum registro
+      throw error;
+    }
+    return data as User;
+  }
+
   async updateUserPreferences(
     userId: string,
     preferences: Partial<IUserPreferences>

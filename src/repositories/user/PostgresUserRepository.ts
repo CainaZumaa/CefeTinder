@@ -23,6 +23,11 @@ export class PostgresUserRepository extends BaseUserRepository {
     return (result.rows[0] as User) || null;
   }
 
+  async getUserByEmail(email: string): Promise<User | null> {
+    const result = await pool.query("SELECT * FROM WHERE email = $1",[email]);
+    return (result.rows[0] as User) || null;
+  }
+
   async updateUserPreferences(
     userId: string,
     preferences: Partial<IUserPreferences>
