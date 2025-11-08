@@ -36,14 +36,14 @@ export class MatchService extends BaseService {
         if (isUser1) {
           await this.query(
             `UPDATE matches 
-             SET user1_liked = true, is_super_like = $3
+             SET user1_liked = true, is_super_like = $2
              WHERE id = $1`,
             [match.id, isSuperLike]
           );
         } else {
           await this.query(
             `UPDATE matches 
-             SET user2_liked = true, is_super_like = $3
+             SET user2_liked = true, is_super_like = $2
              WHERE id = $1`,
             [match.id, isSuperLike]
           );

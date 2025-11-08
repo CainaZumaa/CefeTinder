@@ -51,7 +51,8 @@ export const matchServiceImplementation: IMatchServiceServer = {
     const likedUserId = call.request.getTargetuserid();
 
     try {
-      const match = await service.likeUser(userId, likedUserId);
+      const isSuperLike = call.request.getIsmatchlike();
+      const match = await service.likeUser(userId, likedUserId, isSuperLike);
       if (!match) {
         callback(null, null);
         return;
