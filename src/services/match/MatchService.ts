@@ -1,10 +1,29 @@
 import { BaseService } from "../database/BaseService";
 import { IMatch, Match } from "../../types";
 import { request, RequestOptions } from "http";
+import {
+  MatchSubject,
+  MatchEvent,
+  MatchEventType,
+} from "../../patterns/observer";
 
+// Observer Pattern: MatchService é o Subject que notifica observers quando eventos de match ocorrem
 // to-do: Acho que vale usar Factory Method aqui para criar diferentes tipos de MatchService
 // (ex: MatchAlgorithmService, MatchNotificationService, MatchAnalyticsService) para separar responsabilidades
 export class MatchService extends BaseService {
+  private matchSubject: MatchSubject;
+
+  constructor() {
+    super();
+    this.matchSubject = new MatchSubject();
+  }
+
+  /**
+   * Get the match subject for attaching observers
+   */
+  public getSubject(): MatchSubject {
+    return this.matchSubject;
+  }
   async likeUser(
     userId: string,
     targetUserId: string,
@@ -69,7 +88,30 @@ export class MatchService extends BaseService {
       }
     });
 
-    // enviar notificações via HTTP
+    // Observer Pattern: Notify all observers about the match event
+    if (result) {
+      const eventType =
+        result.user1_liked && result.user2_liked
+          ? MatchEventType.MATCH_CREATED
+          : isSuperLike
+          ? MatchEventType.SUPER_LIKE_SENT
+          : MatchEventType.LIKE_SENT;
+
+      const matchEvent: MatchEvent = {
+        type: eventType,
+        data: {
+          userId,
+          targetUserId,
+          match: result.user1_liked && result.user2_liked ? result : undefined,
+          isSuperLike,
+          timestamp: new Date(),
+        },
+      };
+
+      this.matchSubject.notify(matchEvent);
+    }
+
+    // enviar notificações via HTTP (Legacy - kept for backward compatibility)
     if (result) {
       try {
         if (result.user1_liked && result.user2_liked) {
@@ -128,6 +170,18 @@ export class MatchService extends BaseService {
         }
       }
     });
+
+    // Observer Pattern: Notify all observers about the dislike event
+    const dislikeEvent: MatchEvent = {
+      type: MatchEventType.DISLIKE_SENT,
+      data: {
+        userId,
+        targetUserId,
+        timestamp: new Date(),
+      },
+    };
+
+    this.matchSubject.notify(dislikeEvent);
   }
 
   async getMatches(userId: string): Promise<Match[]> {

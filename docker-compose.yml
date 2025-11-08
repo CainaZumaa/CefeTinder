@@ -29,17 +29,17 @@ services:
       - cefet-tinder-network
     environment:
       USER_SERVICE_ADDRESS: "user-service:50051"
-      MATCH_SERVICE_ADDRESS: "match-service:50052" 
+      MATCH_SERVICE_ADDRESS: "match-service:50052"
     depends_on:
       - user-service
       - match-service
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 512M
     command: sh -c "npm run start:graphql"
-    
+
   user-service:
     build:
       context: .
@@ -83,14 +83,14 @@ services:
       context: .
     container_name: cefet-tinder-notification-service
     restart: always
-    expose:
-      - "8080"
+    ports:
+      - "8080:8080"
     networks:
       - cefet-tinder-network
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 512M
     command: sh -c "npm run start:socket"
 
@@ -104,15 +104,17 @@ services:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: secret
       POSTGRES_DB: users
+    ports:
+      - "5433:5432"
     volumes:
       - db-users-data:/var/lib/postgresql/data
       - ./infra/scripts/user.sql:/docker-entrypoint-initdb.d/init.sql
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 512M
-  
+
   db-match:
     image: postgres:16
     container_name: cefet-tinder-db-match
@@ -123,19 +125,21 @@ services:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: secret
       POSTGRES_DB: match
+    ports:
+      - "5434:5432"
     volumes:
       - db-match-data:/var/lib/postgresql/data
       - ./infra/scripts/match.sql:/docker-entrypoint-initdb.d/init.sql
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 512M
 
 networks:
   cefet-tinder-network:
     driver: bridge
-  
+
 volumes:
   db-users-data:
   db-match-data:

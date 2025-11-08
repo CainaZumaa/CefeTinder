@@ -25,7 +25,7 @@ plugins:
   - name: rate-limiting
     service: graphql-service
     config:
-      minute: 5
+      minute: 1000  # Increased for development (was 5)
       policy: local
 
   - name: cors

@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CefeTinder WebSocket Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #e91e63;
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .connected {
+            background-color: #4caf50;
+            color: white;
+        }
+        .disconnected {
+            background-color: #f44336;
+            color: white;
+        }
+        .connecting {
+            background-color: #ff9800;
+            color: white;
+        }
+        input {
+            padding: 10px;
+            width: 300px;
+            margin-right: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #e91e63;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #c2185b;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .messages {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            min-height: 200px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .message {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            border-left: 4px solid #e91e63;
+            background-color: white;
+        }
+        .message-time {
+            font-size: 12px;
+            color: #666;
+        }
+        .message-type {
+            font-weight: bold;
+            color: #e91e63;
+        }
+        .clear-btn {
+            background-color: #666;
+            margin-left: 10px;
+        }
+        .clear-btn:hover {
+            background-color: #444;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔥 CefeTinder WebSocket Test Client</h1>
+        
+        <div>
+            <input type="text" id="userId" placeholder="Enter your User ID" value="test-user-123">
+            <button id="connectBtn" onclick="connect()">Connect</button>
+            <button id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+        </div>
+        
+        <div id="status" class="status disconnected">
+            ⚪ Disconnected
+        </div>
+
+        <div style="margin-top: 20px;">
+            <h3>Received Notifications:</h3>
+            <button class="clear-btn" onclick="clearMessages()">Clear Messages</button>
+            <div id="messages" class="messages">
+                <p style="color: #999;">No notifications yet. Connect and wait for match/like notifications...</p>
+            </div>
+        </div>
+
+        <div style="margin-top: 20px; padding: 15px; background-color: #fff3cd; border-radius: 4px;">
+            <h4>📝 Instructions:</h4>
+            <ol>
+                <li>Make sure Docker services are running: <code>docker-compose up</code></li>
+                <li>Enter a User ID (or use the default)</li>
+                <li>Click "Connect" to establish WebSocket connection</li>
+                <li>Use GraphQL to create likes/matches and watch notifications appear here</li>
+                <li>Open multiple browser tabs with different User IDs to test both sides of a match</li>
+            </ol>
+        </div>
+
+        <div style="margin-top: 20px; padding: 15px; background-color: #e3f2fd; border-radius: 4px;">
+            <h4>🧪 Test with GraphQL:</h4>
+            <p>Open <a href="http://localhost:8000/graphql" target="_blank">http://localhost:8000/graphql</a> and run:</p>
+            <pre style="background: #263238; color: #aed581; padding: 10px; border-radius: 4px; overflow-x: auto;">
+# First, create two users
+mutation {
+  user1: createUser(input: {
+    name: "Alice"
+    age: 25
+    email: "alice@test.com"
+    gender: "female"
+  }) { id name }
+  
+  user2: createUser(input: {
+    name: "Bob"
+    age: 27
+    email: "bob@test.com"
+    gender: "male"
+  }) { id name }
+}
+
+# Then like each other (use the IDs from above)
+mutation {
+  likeUser(userId: "user-id-1", targetUserId: "user-id-2", isSuperLike: false) {
+    user1_id
+    user2_id
+    user1_liked
+    user2_liked
+  }
+}</pre>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let messageCount = 0;
+
+        function updateStatus(status, className) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = status;
+            statusDiv.className = 'status ' + className;
+        }
+
+        function connect() {
+            const userId = document.getElementById('userId').value.trim();
+            
+            if (!userId) {
+                alert('Please enter a User ID');
+                return;
+            }
+
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                alert('Already connected!');
+                return;
+            }
+
+            updateStatus('🔄 Connecting...', 'connecting');
+
+            try {
+                ws = new WebSocket(`ws://localhost:8080?userId=${encodeURIComponent(userId)}`);
+
+                ws.onopen = () => {
+                    console.log('WebSocket connected');
+                    updateStatus(`✅ Connected as: ${userId}`, 'connected');
+                    document.getElementById('connectBtn').disabled = true;
+                    document.getElementById('disconnectBtn').disabled = false;
+                    addSystemMessage(`Connected to WebSocket server as ${userId}`);
+                };
+
+                ws.onmessage = (event) => {
+                    console.log('Message received:', event.data);
+                    try {
+                        const notification = JSON.parse(event.data);
+                        addNotificationMessage(notification);
+                    } catch (e) {
+                        console.error('Failed to parse message:', e);
+                        addSystemMessage('Received invalid JSON: ' + event.data);
+                    }
+                };
+
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    updateStatus('❌ Connection Error', 'disconnected');
+                    addSystemMessage('WebSocket error occurred. Check console for details.');
+                };
+
+                ws.onclose = () => {
+                    console.log('WebSocket disconnected');
+                    updateStatus('⚪ Disconnected', 'disconnected');
+                    document.getElementById('connectBtn').disabled = false;
+                    document.getElementById('disconnectBtn').disabled = true;
+                    addSystemMessage('Disconnected from WebSocket server');
+                };
+
+            } catch (error) {
+                console.error('Failed to create WebSocket:', error);
+                updateStatus('❌ Failed to Connect', 'disconnected');
+                addSystemMessage('Failed to create WebSocket connection: ' + error.message);
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        function addNotificationMessage(notification) {
+            messageCount++;
+            const messagesDiv = document.getElementById('messages');
+            
+            // Clear the "no notifications" message
+            if (messageCount === 1) {
+                messagesDiv.innerHTML = '';
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            
+            const time = new Date().toLocaleTimeString();
+            let content = '';
+            
+            switch (notification.type) {
+                case 'MATCH':
+                    content = `
+                        <div class="message-type">🎉 MATCH!</div>
+                        <div>Match ID: ${notification.data.matchId}</div>
+                        <div>Matched At: ${new Date(notification.data.matchedAt).toLocaleString()}</div>
+                        <div>Super Like: ${notification.data.isSuperLike ? 'Yes ⭐' : 'No'}</div>
+                    `;
+                    break;
+                case 'LIKE':
+                    content = `
+                        <div class="message-type">👍 Someone Liked You!</div>
+                        <div>From User: ${notification.data.fromUserId}</div>
+                        <div>Super Like: ${notification.data.isSuperLike ? 'Yes ⭐' : 'No'}</div>
+                    `;
+                    break;
+                default:
+                    content = `
+                        <div class="message-type">${notification.type}</div>
+                        <pre>${JSON.stringify(notification.data, null, 2)}</pre>
+                    `;
+            }
+            
+            messageDiv.innerHTML = `
+                <div class="message-time">${time}</div>
+                ${content}
+            `;
+            
+            messagesDiv.insertBefore(messageDiv, messagesDiv.firstChild);
+        }
+
+        function addSystemMessage(message) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            messageDiv.style.borderLeftColor = '#666';
+            
+            const time = new Date().toLocaleTimeString();
+            messageDiv.innerHTML = `
+                <div class="message-time">${time}</div>
+                <div style="color: #666;">ℹ️ ${message}</div>
+            `;
+            
+            messagesDiv.insertBefore(messageDiv, messagesDiv.firstChild);
+        }
+
+        function clearMessages() {
+            messageCount = 0;
+            document.getElementById('messages').innerHTML = '<p style="color: #999;">No notifications yet. Connect and wait for match/like notifications...</p>';
+        }
+
+        // Connect on Enter key
+        document.getElementById('userId').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                connect();
+            }
+        });
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            if (ws) {
+                ws.close();
+            }
+        });
+    </script>
+</body>
+</html>

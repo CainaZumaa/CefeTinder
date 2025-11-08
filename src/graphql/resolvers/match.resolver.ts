@@ -12,17 +12,24 @@ export class MatchResolver {
   async getMatches(@Arg("userId") userId: string): Promise<Match[]> {
     const grpcMatches = await this.matchService.getMatches(userId);
 
-    const matches: Match[] = grpcMatches.map(grpcMatch => ({
-      id: grpcMatch.getId(),
-      user1_id: grpcMatch.getUser1id(),
-      user2_id: grpcMatch.getUser2id(),
-      user1_liked: grpcMatch.getUser1liked(),
-      user2_liked: grpcMatch.getUser2liked(),
-      is_super_like: grpcMatch.getIssuperlike(),
-      matched_at: new Date(grpcMatch.getMatchedat()),
-      created_at: new Date(grpcMatch.getCreatedat()),
-      updated_at: new Date(grpcMatch.getUpdatedat()),
-    }));
+    const matches: Match[] = grpcMatches.map((grpcMatch) => {
+      const matchedAtStr = grpcMatch.getMatchedat();
+
+      return {
+        id: grpcMatch.getId(),
+        user1_id: grpcMatch.getUser1id(),
+        user2_id: grpcMatch.getUser2id(),
+        user1_liked: grpcMatch.getUser1liked(),
+        user2_liked: grpcMatch.getUser2liked(),
+        is_super_like: grpcMatch.getIssuperlike(),
+        matched_at:
+          matchedAtStr && matchedAtStr !== ""
+            ? new Date(matchedAtStr)
+            : undefined,
+        created_at: new Date(grpcMatch.getCreatedat()),
+        updated_at: new Date(grpcMatch.getUpdatedat()),
+      };
+    });
 
     return matches;
   }
@@ -33,9 +40,15 @@ export class MatchResolver {
     @Arg("targetUserId") targetUserId: string,
     @Arg("isSuperLike", { defaultValue: false }) isSuperLike: boolean
   ): Promise<Match | null> {
-    const grpcMatch = await this.matchService.likeUser(userId, targetUserId, isSuperLike);
+    const grpcMatch = await this.matchService.likeUser(
+      userId,
+      targetUserId,
+      isSuperLike
+    );
     if (!grpcMatch) return null;
-    // Mapeie também aqui se necessário
+
+    const matchedAtStr = grpcMatch.getMatchedat();
+
     return {
       id: grpcMatch.getId(),
       user1_id: grpcMatch.getUser1id(),
@@ -43,6 +56,10 @@ export class MatchResolver {
       user1_liked: grpcMatch.getUser1liked(),
       user2_liked: grpcMatch.getUser2liked(),
       is_super_like: grpcMatch.getIssuperlike(),
+      matched_at:
+        matchedAtStr && matchedAtStr !== ""
+          ? new Date(matchedAtStr)
+          : undefined,
       created_at: new Date(grpcMatch.getCreatedat()),
       updated_at: new Date(grpcMatch.getUpdatedat()),
     };
