@@ -20,6 +20,7 @@ export class UserResolver {
         email: grpcUser.getEmail(),
         age: grpcUser.getAge(),
         gender: grpcUser.getGender(),
+        bio: grpcUser.getBio(),
         created_at: new Date(), // Campo não presente, usar data atual
         updated_at: new Date(), // Campo não presente, usar data atual
       };
@@ -42,6 +43,7 @@ export class UserResolver {
       id: grpcUser.getId(),
       name: grpcUser.getName(),
       email: grpcUser.getEmail(),
+      bio: grpcUser.getBio(),
       age: grpcUser.getAge(),
       gender: grpcUser.getGender(),
       created_at: new Date(), // Campo não presente, usar data atual

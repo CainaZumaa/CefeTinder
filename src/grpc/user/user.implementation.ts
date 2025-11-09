@@ -20,9 +20,11 @@ export const userServiceImplementation: IUserServiceServer = {
 
       const protoUser = new User();
       protoUser.setId(user.id);
+      protoUser.setEmail(user.email);
       protoUser.setName(user.name);
       protoUser.setAge(user.age);
       protoUser.setGender(user.gender);
+      protoUser.setBio(user.bio || "");
 
       callback(null, protoUser);
     } catch (error) {
@@ -49,6 +51,8 @@ export const userServiceImplementation: IUserServiceServer = {
       protoUser.setId(user.id);
       protoUser.setName(user.name);
       protoUser.setAge(user.age);
+      protoUser.setEmail(user.email);
+      protoUser.setBio(user.bio || "");
       protoUser.setGender(user.gender);
 
       callback(null, protoUser);
