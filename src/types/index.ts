@@ -7,6 +7,7 @@ export interface IUser extends QueryResultRow {
   age: number;
   gender: string;
   bio?: string;
+  last_super_like?: Date;
   created_at: Date;
   updated_at: Date;
 }

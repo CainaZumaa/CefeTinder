@@ -8,7 +8,8 @@
     "build": "tsc",
     "migrate": "node-pg-migrate",
     "proto:generate": "grpc_tools_node_protoc --plugin=protoc-gen-ts=./node_modules/.bin/protoc-gen-ts --ts_out=grpc_js:./src/grpc/proto --js_out=import_style=commonjs:./src/grpc/proto --grpc_out=grpc_js:./src/grpc/proto --proto_path=./src/grpc/proto ./src/grpc/proto/*.proto",
-    "start:grpc:user-service": "ts-node src/grpc/user/user.server.ts",
+    "start:grpc:user-service": "ts-node src/user-service/presentation/grpc/server.ts",
+    "start:grpc:user-service:old": "ts-node src/grpc/user/user.server.ts",
     "start:grpc:match-service": "ts-node src/grpc/match/match.server.ts",
     "start:graphql": "ts-node src/graphql/server.ts",
     "start:socket": "ts-node src/websocket/server.ts"
