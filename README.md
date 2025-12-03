@@ -81,27 +81,223 @@ socket.onmessage = function (event) {
 };
 ```
 
-## Design Patterns Utilizados
+## Padrões de Projeto (Design Patterns)
 
-1. **Observer**
+O projeto implementa diversos padrões de projeto para garantir código limpo, manutenível e escalável:
 
-   - Implementado no sistema de notificações
-   - Permite que usuários recebam atualizações em tempo real sobre matches
+### 1. **Observer Pattern** 🔔
 
-2. **Strategy**
+**Localização:** `src/patterns/observer/`, `src/services/match/MatchService.ts`
 
-   - Usado no sistema de matching
-   - Permite diferentes algoritmos de matching baseados em critérios específicos
+**Objetivo:** Implementar um sistema de notificações desacoplado onde múltiplos observadores podem reagir a eventos de match sem acoplamento direto.
 
-3. **Singleton**
+**Como funciona:**
 
-   - Usado nas conexões com Supabase
-   - Garante uma única instância de conexão com o banco de dados
+- `MatchService` atua como **Subject** que publica eventos (like, super like, match, dislike)
+- `NotificationObserver` é um **Observer concreto** que escuta eventos e envia notificações via WebSocket
+- Quando um match ocorre, todos os observadores registrados são notificados automaticamente
 
-### Design Patterns Sugeridos
+**Benefícios:**
 
-- **Factory Method**: Para criação de diferentes tipos de serviços e conexões
-- **Decorator**: Para adicionar logging, validação e métricas aos resolvers
+- Desacoplamento entre lógica de negócio e notificações
+- Facilita adição de novos tipos de observadores (analytics, email, push notifications)
+- Testabilidade melhorada com mock observers
+
+**Exemplo de uso:**
+
+```typescript
+const notificationObserver = new NotificationObserver(notificationService);
+matchService.getSubject().attach(notificationObserver);
+```
+
+---
+
+### 2. **Repository Pattern** 🗄️
+
+**Localização:** `src/repositories/user/`
+
+**Objetivo:** Abstrair a lógica de acesso a dados, permitindo trocar a implementação do banco de dados sem impactar a camada de negócio.
+
+**Como funciona:**
+
+- `IUserRepository` define o contrato de interface
+- `PostgresUserRepository` e `SupabaseUserRepository` são implementações concretas
+- `UserService` depende apenas da interface, não da implementação
+
+**Benefícios:**
+
+- Inversão de Dependência (SOLID - D)
+- Facilita testes unitários com repositórios mock
+- Permite trocar banco de dados sem alterar regras de negócio
+- Substituição de Liskov (SOLID - L): qualquer implementação pode substituir a base
+
+**Exemplo de uso:**
+
+```typescript
+// UserService usa a interface, não a implementação concreta
+constructor(@inject(TYPES.IUserRepository) private repository: IUserRepository)
+```
+
+---
+
+### 3. **Factory Pattern** 🏭
+
+**Localização:** `src/factories/DatabaseFactory.ts`
+
+**Objetivo:** Centralizar a criação de objetos complexos (repositórios) e permitir diferentes implementações baseadas em configuração.
+
+**Como funciona:**
+
+- `DatabaseClientFactory.createUserRepository()` cria instâncias de repositórios
+- Seleciona entre Postgres ou Supabase baseado em parâmetro
+- Encapsula lógica de criação e inicialização
+
+**Benefícios:**
+
+- Centraliza lógica de criação
+- Facilita adição de novos tipos de banco de dados
+- Segue Open/Closed Principle (SOLID - O)
+
+**Exemplo de uso:**
+
+```typescript
+const repository = DatabaseClientFactory.createUserRepository("postgres");
+```
+
+---
+
+### 4. **Dependency Injection (DI)** 💉
+
+**Localização:** `src/grpc/user/user.container.ts`, `src/services/user/UserService.ts`
+
+**Objetivo:** Inverter o controle de dependências, permitindo que objetos recebam suas dependências ao invés de criá-las.
+
+**Como funciona:**
+
+- Usa biblioteca `inversify` para container IoC
+- Registra dependências no container
+- Injeta automaticamente no construtor usando decorators `@inject`
+
+**Benefícios:**
+
+- Inversão de Dependência (SOLID - D)
+- Facilita testes com dependências mockadas
+- Reduz acoplamento entre módulos
+- Gerenciamento centralizado de dependências
+
+**Exemplo de uso:**
+
+```typescript
+container.bind(TYPES.IUserRepository).toDynamicValue(() => {
+  return DatabaseClientFactory.createUserRepository("postgres");
+});
+```
+
+---
+
+### 5. **Strategy Pattern** 🎯
+
+**Localização:** `src/services/notification/NotificationService.ts`
+
+**Objetivo:** Permitir diferentes estratégias de tratamento de notificações sem modificar a classe principal.
+
+**Como funciona:**
+
+- `NotificationHandler` é a interface abstrata de estratégia
+- `MatchNotificationHandler` e `LikeNotificationHandler` são estratégias concretas
+- `NotificationService` usa handlers registrados dinamicamente
+
+**Benefícios:**
+
+- Open/Closed Principle (SOLID - O): aberto para extensão, fechado para modificação
+- Facilita adição de novos tipos de notificação
+- Cada handler tem responsabilidade única (SOLID - S)
+
+**Exemplo de uso:**
+
+```typescript
+notificationService.registerHandler("MATCH", new MatchNotificationHandler());
+notificationService.registerHandler("EMAIL", new EmailNotificationHandler());
+```
+
+---
+
+### 6. **Singleton Pattern** 🔒
+
+**Localização:** `src/services/notification/NotificationService.ts`, `src/config/supabase.ts`
+
+**Objetivo:** Garantir uma única instância de recursos compartilhados (conexões, serviços).
+
+**Como funciona:**
+
+- `getNotificationService()` retorna sempre a mesma instância
+- `getSupabaseClient()` mantém uma única conexão com Supabase
+- Evita múltiplas conexões e garante estado consistente
+
+**Benefícios:**
+
+- Economia de recursos (memória, conexões)
+- Estado global consistente
+- Controle sobre instanciação
+
+**Exemplo de uso:**
+
+```typescript
+const notificationService = getNotificationService();
+// Sempre retorna a mesma instância
+```
+
+---
+
+### 7. **Microservices Pattern** 🔄
+
+**Localização:** Arquitetura geral do projeto
+
+**Objetivo:** Dividir a aplicação em serviços independentes e especializados.
+
+**Como funciona:**
+
+- **User Service** (gRPC) - Gerenciamento de usuários
+- **Match Service** (gRPC) - Sistema de matching
+- **Notification Service** (WebSocket) - Notificações em tempo real
+- **GraphQL Service** - API unificada para frontend
+- **Kong API Gateway** - Roteamento e gerenciamento
+
+**Benefícios:**
+
+- Escalabilidade independente de cada serviço
+- Deploy e manutenção isolados
+- Tecnologias diferentes para problemas diferentes
+- Tolerância a falhas
+
+---
+
+## Princípios SOLID Aplicados
+
+✅ **S - Single Responsibility Principle**
+
+- Cada serviço tem uma responsabilidade única
+- Separação clara entre camadas (repository, service, resolver)
+
+✅ **O - Open/Closed Principle**
+
+- Strategy pattern permite extensão sem modificação
+- Factory pattern facilita adição de novos tipos
+
+✅ **L - Liskov Substitution Principle**
+
+- Implementações de repositórios são intercambiáveis
+- `PostgresUserRepository` pode substituir `BaseUserRepository`
+
+✅ **I - Interface Segregation Principle**
+
+- Interfaces específicas (`IUserRepository`, `IMatchObserver`)
+- Clientes dependem apenas dos métodos que usam
+
+✅ **D - Dependency Inversion Principle**
+
+- Serviços dependem de abstrações, não de implementações concretas
+- Dependency Injection via InversifyJS
 
 ## Tecnologias
 
@@ -113,14 +309,8 @@ socket.onmessage = function (event) {
 
 ## Funcionalidades
 
-- Filtros por idade, gênero e interesses
+- Filtros por idade e gênero
 - Sistema de likes e super likes
 - Notificações em tempo real de matches
 - Gerenciamento de sessões ativas
 - Sistema de matchmaking
-
-## To-do
-
-- Implementar Design Patterns sugeridos
-- Implementar principios SOLID
-- Abstrair camada de banco de dados

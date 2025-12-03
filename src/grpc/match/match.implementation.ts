@@ -9,8 +9,15 @@ import {
   Matches,
 } from "../proto/match_pb";
 import * as grpc from "@grpc/grpc-js";
+import { NotificationObserver } from "../../patterns/observer";
+import { getNotificationService } from "../../services/notification/NotificationService";
 
 const service = new MatchService();
+
+// Observer Pattern: Attach notification observer to match service
+const notificationService = getNotificationService();
+const notificationObserver = new NotificationObserver(notificationService);
+service.getSubject().attach(notificationObserver);
 
 export const matchServiceImplementation: IMatchServiceServer = {
   getMatches: async (
@@ -23,6 +30,7 @@ export const matchServiceImplementation: IMatchServiceServer = {
       const matchList = await service.getMatches(userId);
       const protoMatches = matchList.map((match) => {
         const protoMatch = new Match();
+        protoMatch.setId(match.id);
         protoMatch.setUser1id(match.user1_id);
         protoMatch.setUser2id(match.user2_id);
         protoMatch.setUser1liked(match.user1_liked);
@@ -30,6 +38,16 @@ export const matchServiceImplementation: IMatchServiceServer = {
         protoMatch.setIssuperlike(match.is_super_like);
         protoMatch.setMatchedat(
           match.matched_at ? match.matched_at.toISOString() : ""
+        );
+        protoMatch.setCreatedat(
+          match.created_at
+            ? match.created_at.toISOString()
+            : new Date().toISOString()
+        );
+        protoMatch.setUpdatedat(
+          match.updated_at
+            ? match.updated_at.toISOString()
+            : new Date().toISOString()
         );
         return protoMatch;
       });
@@ -58,6 +76,7 @@ export const matchServiceImplementation: IMatchServiceServer = {
         return;
       }
       const protoMatch = new Match();
+      protoMatch.setId(match.id);
       protoMatch.setUser1id(match.user1_id);
       protoMatch.setUser2id(match.user2_id);
       protoMatch.setUser1liked(match.user1_liked);
@@ -65,6 +84,16 @@ export const matchServiceImplementation: IMatchServiceServer = {
       protoMatch.setIssuperlike(match.is_super_like);
       protoMatch.setMatchedat(
         match.matched_at ? match.matched_at.toISOString() : ""
+      );
+      protoMatch.setCreatedat(
+        match.created_at
+          ? match.created_at.toISOString()
+          : new Date().toISOString()
+      );
+      protoMatch.setUpdatedat(
+        match.updated_at
+          ? match.updated_at.toISOString()
+          : new Date().toISOString()
       );
       callback(null, protoMatch);
     } catch (error) {
