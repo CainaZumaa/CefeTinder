@@ -1,10 +1,17 @@
-import { Pool, QueryResult } from 'pg';
-import { IConversationRepository } from '../../domain/repositories/IConversationRepository';
-import { Conversation, Participant } from '../../domain/entities/Conversation';
-import { ChatRoomId } from '../../domain/value-objects/ChatRoomId';
-import { Timestamp } from '../../domain/value-objects/Timestamp';
-import { Message } from '../../domain/entities/Message';
-import { ChatEntityMapper, ConversationEntity, ParticipantEntity } from './mappers/ChatEntityMapper';
+import { Pool, QueryResult } from "pg";
+import {
+  ConversationSearchCriteria,
+  IConversationRepository,
+} from "../../domain/repositories/IConversationRepository";
+import { Conversation, Participant } from "../../domain/entities/Conversation";
+import { ChatRoomId } from "../../domain/value-objects/ChatRoomId";
+import { Timestamp } from "../../domain/value-objects/Timestamp";
+import { Message } from "../../domain/entities/Message";
+import {
+  ChatEntityMapper,
+  ConversationEntity,
+  ParticipantEntity,
+} from "./mappers/ChatEntityMapper";
 
 export class PostgresChatRepositoryExtended implements IConversationRepository {
   private pool: Pool;
@@ -60,9 +67,9 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
       await this.pool.query(createConversationsTable);
       await this.pool.query(createParticipantsTable);
       await this.pool.query(createIndexes);
-      console.log('Conversation tables initialized');
+      console.log("Conversation tables initialized");
     } catch (error) {
-      console.error('Error initializing conversation tables:', error);
+      console.error("Error initializing conversation tables:", error);
       throw error;
     }
   }
@@ -70,9 +77,11 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
   private async toDomain(conversationId: string): Promise<Conversation | null> {
     try {
       // Buscar conversa
-      const convQuery = 'SELECT * FROM conversations WHERE id = $1';
-      const convResult = await this.pool.query<ConversationEntity>(convQuery, [conversationId]);
-      
+      const convQuery = "SELECT * FROM conversations WHERE id = $1";
+      const convResult = await this.pool.query<ConversationEntity>(convQuery, [
+        conversationId,
+      ]);
+
       if (convResult.rows.length === 0) {
         return null;
       }
@@ -80,32 +89,43 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
       const convRow = convResult.rows[0];
 
       // Buscar participantes
-      const partQuery = 'SELECT * FROM conversation_participants WHERE conversation_id = $1';
-      const partResult = await this.pool.query<ParticipantEntity>(partQuery, [conversationId]);
+      const partQuery =
+        "SELECT * FROM conversation_participants WHERE conversation_id = $1";
+      const partResult = await this.pool.query<ParticipantEntity>(partQuery, [
+        conversationId,
+      ]);
 
-      const participants: Participant[] = partResult.rows.map(row => ({
+      const participants: Participant[] = partResult.rows.map((row) => ({
         userId: row.user_id,
         joinedAt: Timestamp.create(row.joined_at),
         isActive: row.is_active,
-        lastSeen: row.last_seen ? Timestamp.create(row.last_seen) : undefined
+        lastSeen: row.last_seen ? Timestamp.create(row.last_seen) : undefined,
       }));
 
       // Buscar mensagens (limitado para performance)
       const roomId = ChatRoomId.create(conversationId);
-      const messages = await this.messageRepository.findByRoomId(roomId, 100, 0);
+      const messages = await this.messageRepository.findByRoomId(
+        roomId,
+        100,
+        0
+      );
 
-      return ChatEntityMapper.toConversationDomain(convRow, participants, messages);
+      return ChatEntityMapper.toConversationDomain(
+        convRow,
+        participants,
+        messages
+      );
     } catch (error) {
-      console.error('Error converting to domain:', error);
+      console.error("Error converting to domain:", error);
       throw error;
     }
   }
 
   async save(conversation: Conversation): Promise<void> {
     const client = await this.pool.connect();
-    
+
     try {
-      await client.query('BEGIN');
+      await client.query("BEGIN");
 
       // Inserir/atualizar conversa
       const convQuery = `
@@ -122,12 +142,12 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
         conversation.roomId.value,
         conversation.isGroup,
         JSON.stringify(conversation.metadata),
-        conversation.lastMessage?.id.value
+        conversation.lastMessage?.id.value,
       ]);
 
       // Limpar participantes antigos
       await client.query(
-        'DELETE FROM conversation_participants WHERE conversation_id = $1',
+        "DELETE FROM conversation_participants WHERE conversation_id = $1",
         [conversation.roomId.value]
       );
 
@@ -145,13 +165,13 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
           participant.joinedAt.isoString,
           participant.isActive,
           participant.lastSeen?.isoString,
-          'member'
+          "member",
         ]);
       }
 
-      await client.query('COMMIT');
+      await client.query("COMMIT");
     } catch (error) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       throw error;
     } finally {
       client.release();
@@ -168,23 +188,22 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
 
   async delete(roomId: ChatRoomId): Promise<void> {
     const client = await this.pool.connect();
-    
+
     try {
-      await client.query('BEGIN');
-      
+      await client.query("BEGIN");
+
       await client.query(
-        'DELETE FROM conversation_participants WHERE conversation_id = $1',
+        "DELETE FROM conversation_participants WHERE conversation_id = $1",
         [roomId.value]
       );
-      
-      await client.query(
-        'DELETE FROM conversations WHERE id = $1',
-        [roomId.value]
-      );
-      
-      await client.query('COMMIT');
+
+      await client.query("DELETE FROM conversations WHERE id = $1", [
+        roomId.value,
+      ]);
+
+      await client.query("COMMIT");
     } catch (error) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       throw error;
     } finally {
       client.release();
@@ -201,7 +220,7 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
     `;
 
     const result = await this.pool.query<ConversationEntity>(query, [userId]);
-    
+
     const conversations: Conversation[] = [];
     for (const row of result.rows) {
       const conversation = await this.toDomain(row.id);
@@ -213,7 +232,10 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
     return conversations;
   }
 
-  async findByParticipants(userId1: string, userId2: string): Promise<Conversation | null> {
+  async findByParticipants(
+    userId1: string,
+    userId2: string
+  ): Promise<Conversation | null> {
     const query = `
       SELECT c.* 
       FROM conversations c
@@ -225,8 +247,11 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
       LIMIT 1
     `;
 
-    const result = await this.pool.query<ConversationEntity>(query, [userId1, userId2]);
-    
+    const result = await this.pool.query<ConversationEntity>(query, [
+      userId1,
+      userId2,
+    ]);
+
     if (result.rows.length === 0) {
       return null;
     }
@@ -235,7 +260,7 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
   }
 
   async search(criteria: ConversationSearchCriteria): Promise<Conversation[]> {
-    const conditions: string[] = ['1 = 1'];
+    const conditions: string[] = ["1 = 1"];
     const params: any[] = [];
     let paramCount = 1;
 
@@ -256,12 +281,12 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
 
     const query = `
       SELECT c.* FROM conversations c
-      WHERE ${conditions.join(' AND ')}
+      WHERE ${conditions.join(" AND ")}
       ORDER BY c.updated_at DESC
     `;
 
     const result = await this.pool.query<ConversationEntity>(query, params);
-    
+
     const conversations: Conversation[] = [];
     for (const row of result.rows) {
       const conversation = await this.toDomain(row.id);
@@ -287,7 +312,7 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
 
     // Atualizar updated_at da conversa
     await this.pool.query(
-      'UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+      "UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = $1",
       [roomId.value]
     );
   }
@@ -302,12 +327,16 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
 
     // Atualizar updated_at da conversa
     await this.pool.query(
-      'UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+      "UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = $1",
       [roomId.value]
     );
   }
 
-  async updateParticipantStatus(roomId: ChatRoomId, userId: string, isActive: boolean): Promise<void> {
+  async updateParticipantStatus(
+    roomId: ChatRoomId,
+    userId: string,
+    isActive: boolean
+  ): Promise<void> {
     const query = `
       UPDATE conversation_participants 
       SET is_active = $1,
@@ -319,7 +348,7 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
 
     // Atualizar updated_at da conversa
     await this.pool.query(
-      'UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+      "UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = $1",
       [roomId.value]
     );
   }
@@ -338,7 +367,8 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
   async countUnreadConversations(userId: string): Promise<number> {
     // Implementação simplificada
     const conversations = await this.findByParticipant(userId);
-    return conversations.filter(conv => conv.getUnreadCount(userId) > 0).length;
+    return conversations.filter((conv) => conv.getUnreadCount(userId) > 0)
+      .length;
   }
 
   async addMessage(roomId: ChatRoomId, message: any): Promise<void> {
@@ -354,14 +384,17 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
   }
 
   async getLastMessage(roomId: ChatRoomId): Promise<any | null> {
-    const query = 'SELECT last_message_id FROM conversations WHERE id = $1';
-    const result = await this.pool.query<{ last_message_id: string }>(query, [roomId.value]);
-    
+    const query = "SELECT last_message_id FROM conversations WHERE id = $1";
+    const result = await this.pool.query<{ last_message_id: string }>(query, [
+      roomId.value,
+    ]);
+
     if (result.rows.length === 0 || !result.rows[0].last_message_id) {
       return null;
     }
 
-    const MessageId = require('../../../../domain/value-objects/MessageId').MessageId;
+    const MessageId =
+      require("../../../../domain/value-objects/MessageId").MessageId;
     return this.messageRepository.findById(
       MessageId.create(result.rows[0].last_message_id)
     );
@@ -382,13 +415,13 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
     `;
 
     const result = await this.pool.query(query);
-    return result.rowCount;
+    return result.rowCount ?? 0;
   }
 
   async exists(roomId: ChatRoomId): Promise<boolean> {
-    const query = 'SELECT 1 FROM conversations WHERE id = $1 LIMIT 1';
+    const query = "SELECT 1 FROM conversations WHERE id = $1 LIMIT 1";
     const result = await this.pool.query(query, [roomId.value]);
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async isParticipant(roomId: ChatRoomId, userId: string): Promise<boolean> {
@@ -399,14 +432,19 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
     `;
 
     const result = await this.pool.query(query, [roomId.value, userId]);
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async findPaginatedByParticipant(
     userId: string,
     page: number,
     pageSize: number
-  ): Promise<{ conversations: Conversation[]; total: number; page: number; totalPages: number }> {
+  ): Promise<{
+    conversations: Conversation[];
+    total: number;
+    page: number;
+    totalPages: number;
+  }> {
     const offset = (page - 1) * pageSize;
 
     const [countResult, convsResult] = await Promise.all([
@@ -425,12 +463,12 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
          ORDER BY c.updated_at DESC 
          LIMIT $2 OFFSET $3`,
         [userId, pageSize, offset]
-      )
+      ),
     ]);
 
     const total = parseInt(countResult.rows[0].count, 10);
     const conversations: Conversation[] = [];
-    
+
     for (const row of convsResult.rows) {
       const conversation = await this.toDomain(row.id);
       if (conversation) {
@@ -444,14 +482,14 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
       conversations,
       total,
       page,
-      totalPages
+      totalPages,
     };
   }
 
   async updateLastSeen(userId: string, roomIds: ChatRoomId[]): Promise<void> {
     if (roomIds.length === 0) return;
 
-    const ids = roomIds.map(id => id.value);
+    const ids = roomIds.map((id) => id.value);
     const query = `
       UPDATE conversation_participants 
       SET last_seen = CURRENT_TIMESTAMP
@@ -471,28 +509,37 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
         AND m.status IN ('sent', 'delivered')
     `;
 
-    const result = await this.pool.query<{ id: string }>(query, [roomId.value, userId]);
-    
+    const result = await this.pool.query<{ id: string }>(query, [
+      roomId.value,
+      userId,
+    ]);
+
     if (result.rows.length > 0) {
-      const MessageId = require('../../../../domain/value-objects/MessageId').MessageId;
-      const messageIds = result.rows.map(row => MessageId.create(row.id));
+      const MessageId =
+        require("../../../../domain/value-objects/MessageId").MessageId;
+      const messageIds = result.rows.map((row) => MessageId.create(row.id));
       await this.messageRepository.markManyAsRead(messageIds);
     }
   }
 
   async createDirect(userId1: string, userId2: string): Promise<Conversation> {
-    const ChatRoomId = require('../../../../domain/value-objects/ChatRoomId').ChatRoomId;
+    const ChatRoomId =
+      require("../../../../domain/value-objects/ChatRoomId").ChatRoomId;
     const roomId = ChatRoomId.createDirect(userId1, userId2);
-    
+
     const existing = await this.findById(roomId);
     if (existing) {
       return existing;
     }
 
     // Criar nova conversa direta
-    const conversation = require('../../../../domain/aggregates/Conversation').Conversation.createDirect(userId1, userId2);
+    const conversation =
+      require("../../../../domain/aggregates/Conversation").Conversation.createDirect(
+        userId1,
+        userId2
+      );
     await this.save(conversation);
-    
+
     return conversation;
   }
 
@@ -501,15 +548,17 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
     participants: string[],
     metadata: Record<string, any> = {}
   ): Promise<Conversation> {
-    const ChatRoomId = require('../../../../domain/value-objects/ChatRoomId').ChatRoomId;
+    const ChatRoomId =
+      require("../../../../domain/value-objects/ChatRoomId").ChatRoomId;
     const roomId = ChatRoomId.createGroup(groupId);
-    
-    const conversation = require('../../../../domain/aggregates/Conversation').Conversation.createGroup(
-      groupId,
-      participants,
-      metadata
-    );
-    
+
+    const conversation =
+      require("../../../../domain/aggregates/Conversation").Conversation.createGroup(
+        groupId,
+        participants,
+        metadata
+      );
+
     await this.save(conversation);
     return conversation;
   }
@@ -552,11 +601,16 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
       messageCount: parseInt(row.message_count, 10),
       lastActivity: row.last_activity,
       unreadCount: parseInt(row.unread_count, 10),
-      avgResponseTime: row.avg_response_time ? parseFloat(row.avg_response_time) : null
+      avgResponseTime: row.avg_response_time
+        ? parseFloat(row.avg_response_time)
+        : null,
     };
   }
 
-  async searchConversationsByName(name: string, userId?: string): Promise<Conversation[]> {
+  async searchConversationsByName(
+    name: string,
+    userId?: string
+  ): Promise<Conversation[]> {
     let query = `
       SELECT DISTINCT c.* 
       FROM conversations c
@@ -574,10 +628,10 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
       params.push(userId);
     }
 
-    query += ' ORDER BY c.updated_at DESC LIMIT 20';
+    query += " ORDER BY c.updated_at DESC LIMIT 20";
 
     const result = await this.pool.query<ConversationEntity>(query, params);
-    
+
     const conversations: Conversation[] = [];
     for (const row of result.rows) {
       const conversation = await this.toDomain(row.id);
@@ -589,11 +643,13 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
     return conversations;
   }
 
-  async getConversationsWithUnreadCount(userId: string): Promise<Array<{
-    conversation: Conversation;
-    unreadCount: number;
-    lastMessage: any | null;
-  }>> {
+  async getConversationsWithUnreadCount(userId: string): Promise<
+    Array<{
+      conversation: Conversation;
+      unreadCount: number;
+      lastMessage: any | null;
+    }>
+  > {
     const query = `
       SELECT 
         c.*,
@@ -627,7 +683,7 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
     `;
 
     const result = await this.pool.query(query, [userId]);
-    
+
     const conversations: Array<{
       conversation: Conversation;
       unreadCount: number;
@@ -640,12 +696,14 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
         conversations.push({
           conversation,
           unreadCount: parseInt(row.unread_count, 10),
-          lastMessage: row.last_message_id ? {
-            id: row.last_message_id,
-            content: row.last_message_content,
-            sentAt: row.last_message_sent_at,
-            senderId: row.last_message_sender_id
-          } : null
+          lastMessage: row.last_message_id
+            ? {
+                id: row.last_message_id,
+                content: row.last_message_content,
+                sentAt: row.last_message_sent_at,
+                senderId: row.last_message_sender_id,
+              }
+            : null,
         });
       }
     }
@@ -653,7 +711,10 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
     return conversations;
   }
 
-  async updateConversationMetadata(roomId: ChatRoomId, metadata: Record<string, any>): Promise<void> {
+  async updateConversationMetadata(
+    roomId: ChatRoomId,
+    metadata: Record<string, any>
+  ): Promise<void> {
     const query = `
       UPDATE conversations 
       SET metadata = jsonb_set(
@@ -670,16 +731,16 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
       await this.pool.query(query, [
         roomId.value,
         `{${key}}`,
-        JSON.stringify(value)
+        JSON.stringify(value),
       ]);
     }
   }
 
   async addParticipants(roomId: ChatRoomId, userIds: string[]): Promise<void> {
     const client = await this.pool.connect();
-    
+
     try {
-      await client.query('BEGIN');
+      await client.query("BEGIN");
 
       for (const userId of userIds) {
         const query = `
@@ -696,24 +757,27 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
 
       // Atualizar updated_at da conversa
       await client.query(
-        'UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+        "UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = $1",
         [roomId.value]
       );
 
-      await client.query('COMMIT');
+      await client.query("COMMIT");
     } catch (error) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       throw error;
     } finally {
       client.release();
     }
   }
 
-  async removeParticipants(roomId: ChatRoomId, userIds: string[]): Promise<void> {
+  async removeParticipants(
+    roomId: ChatRoomId,
+    userIds: string[]
+  ): Promise<void> {
     const client = await this.pool.connect();
-    
+
     try {
-      await client.query('BEGIN');
+      await client.query("BEGIN");
 
       for (const userId of userIds) {
         const query = `
@@ -726,13 +790,13 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
 
       // Atualizar updated_at da conversa
       await client.query(
-        'UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+        "UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = $1",
         [roomId.value]
       );
 
-      await client.query('COMMIT');
+      await client.query("COMMIT");
     } catch (error) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       throw error;
     } finally {
       client.release();
@@ -753,7 +817,7 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
     `;
 
     const result = await this.pool.query<ConversationEntity>(query);
-    
+
     const conversations: Conversation[] = [];
     for (const row of result.rows) {
       const conversation = await this.toDomain(row.id);
@@ -765,14 +829,18 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
     return conversations;
   }
 
-  async getConversationParticipants(roomId: ChatRoomId): Promise<Participant[]> {
+  async getConversationParticipants(
+    roomId: ChatRoomId
+  ): Promise<Participant[]> {
     const query = `
       SELECT * FROM conversation_participants 
       WHERE conversation_id = $1
       ORDER BY joined_at
     `;
 
-    const result = await this.pool.query<ParticipantEntity>(query, [roomId.value]);
+    const result = await this.pool.query<ParticipantEntity>(query, [
+      roomId.value,
+    ]);
     return ChatEntityMapper.toParticipantsDomain(result.rows);
   }
 
@@ -794,20 +862,22 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
     `;
 
     const result = await this.pool.query(query);
-    return result.rowCount;
+    return result.rowCount ?? 0;
   }
 
   async getConversationActivityReport(
     startDate: Date,
     endDate: Date
-  ): Promise<Array<{
-    roomId: string;
-    isGroup: boolean;
-    participantCount: number;
-    messageCount: number;
-    activeParticipants: number;
-    lastActivity: Date | null;
-  }>> {
+  ): Promise<
+    Array<{
+      roomId: string;
+      isGroup: boolean;
+      participantCount: number;
+      messageCount: number;
+      activeParticipants: number;
+      lastActivity: Date | null;
+    }>
+  > {
     const query = `
       SELECT 
         c.id as room_id,
@@ -828,16 +898,16 @@ export class PostgresChatRepositoryExtended implements IConversationRepository {
 
     const result = await this.pool.query(query, [
       startDate.toISOString(),
-      endDate.toISOString()
+      endDate.toISOString(),
     ]);
 
-    return result.rows.map(row => ({
+    return result.rows.map((row) => ({
       roomId: row.room_id,
       isGroup: row.is_group,
       participantCount: parseInt(row.participant_count, 10),
       messageCount: parseInt(row.message_count, 10),
       activeParticipants: parseInt(row.active_participants, 10),
-      lastActivity: row.last_activity
+      lastActivity: row.last_activity,
     }));
   }
 }

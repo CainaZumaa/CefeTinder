@@ -1,28 +1,32 @@
 import { BaseService } from "../database/BaseService";
 import { IMatch, Match } from "../../types";
-import { request, RequestOptions } from "http";
-import {
-  MatchSubject,
-  MatchEvent,
-  MatchEventType,
-} from "../../patterns/observer";
+import type { MatchEventsPublisher } from "../../messaging/MatchEventsPublisher";
 
 // Observer Pattern: MatchService é o Subject que notifica observers quando eventos de match ocorrem
 // to-do: Acho que vale usar Factory Method aqui para criar diferentes tipos de MatchService
 // (ex: MatchAlgorithmService, MatchNotificationService, MatchAnalyticsService) para separar responsabilidades
 export class MatchService extends BaseService {
-  private matchSubject: MatchSubject;
-
-  constructor() {
+  constructor(private readonly eventsPublisher?: MatchEventsPublisher) {
     super();
-    this.matchSubject = new MatchSubject();
   }
 
-  /**
-   * Get the match subject for attaching observers
-   */
-  public getSubject(): MatchSubject {
-    return this.matchSubject;
+  private async publishEvent(
+    routingKey:
+      | "match.like_sent"
+      | "match.super_like_sent"
+      | "match.match_created"
+      | "match.dislike_sent",
+    message: Record<string, unknown>
+  ): Promise<void> {
+    if (!this.eventsPublisher) return;
+    try {
+      await this.eventsPublisher.publish(routingKey, {
+        ...message,
+        occurredAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Failed to publish RabbitMQ event:", routingKey, error);
+    }
   }
   async likeUser(
     userId: string,
@@ -88,44 +92,25 @@ export class MatchService extends BaseService {
       }
     });
 
-    // Observer Pattern: Notify all observers about the match event
+    // Choreography (RabbitMQ): publish domain event for other services
     if (result) {
-      const eventType =
-        result.user1_liked && result.user2_liked
-          ? MatchEventType.MATCH_CREATED
-          : isSuperLike
-          ? MatchEventType.SUPER_LIKE_SENT
-          : MatchEventType.LIKE_SENT;
-
-      const matchEvent: MatchEvent = {
-        type: eventType,
-        data: {
-          userId,
-          targetUserId,
-          match: result.user1_liked && result.user2_liked ? result : undefined,
-          isSuperLike,
-          timestamp: new Date(),
-        },
-      };
-
-      this.matchSubject.notify(matchEvent);
-    }
-
-    // enviar notificações via HTTP (Legacy - kept for backward compatibility)
-    if (result) {
-      try {
-        if (result.user1_liked && result.user2_liked) {
-          await this.sendNotification("/notify/match", { match: result });
-        } else {
-          await this.sendNotification("/notify/like", {
-            userId,
-            targetUserId,
-            isSuperLike,
-          });
-        }
-      } catch (error) {
-        // Loga o erro mas não impede a resposta para o usuário
-        console.error("Failed to send notification:", error);
+      if (result.user1_liked && result.user2_liked) {
+        await this.publishEvent("match.match_created", {
+          matchId: result.id,
+          user1Id: result.user1_id,
+          user2Id: result.user2_id,
+          matchedAt: result.matched_at ? result.matched_at.toISOString() : null,
+          isSuperLike: Boolean(result.is_super_like),
+        });
+      } else {
+        await this.publishEvent(
+          isSuperLike ? "match.super_like_sent" : "match.like_sent",
+          {
+            fromUserId: userId,
+            toUserId: targetUserId,
+            isSuperLike: Boolean(isSuperLike),
+          }
+        );
       }
     }
 
@@ -171,17 +156,10 @@ export class MatchService extends BaseService {
       }
     });
 
-    // Observer Pattern: Notify all observers about the dislike event
-    const dislikeEvent: MatchEvent = {
-      type: MatchEventType.DISLIKE_SENT,
-      data: {
-        userId,
-        targetUserId,
-        timestamp: new Date(),
-      },
-    };
-
-    this.matchSubject.notify(dislikeEvent);
+    await this.publishEvent("match.dislike_sent", {
+      fromUserId: userId,
+      toUserId: targetUserId,
+    });
   }
 
   async getMatches(userId: string): Promise<Match[]> {
@@ -196,53 +174,4 @@ export class MatchService extends BaseService {
     return result.rows as Match[];
   }
 
-  private sendNotification(path: string, data: any): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL;
-      if (!NOTIFICATION_SERVICE_URL) {
-        console.warn(
-          "NOTIFICATION_SERVICE_URL is not set. Skipping notification."
-        );
-        return resolve();
-      }
-
-      try {
-        const url = new URL(NOTIFICATION_SERVICE_URL);
-        const postData = JSON.stringify(data);
-
-        const options: RequestOptions = {
-          hostname: url.hostname,
-          port: url.port,
-          path: path,
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Content-Length": Buffer.byteLength(postData),
-          },
-        };
-
-        const req = request(options, (res) => {
-          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-            resolve();
-          } else {
-            reject(
-              new Error(`Request failed with status code: ${res.statusCode}`)
-            );
-          }
-        });
-
-        req.on("error", (e) => {
-          console.error(`Problem with notification request: ${e.message}`);
-          reject(e);
-        });
-
-        // Escreve os dados no corpo da requisição
-        req.write(postData);
-        req.end();
-      } catch (error) {
-        console.error("Failed to construct notification request", error);
-        reject(error);
-      }
-    });
-  }
 }

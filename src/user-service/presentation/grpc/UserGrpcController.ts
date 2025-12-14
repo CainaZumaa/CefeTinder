@@ -62,6 +62,7 @@ export class UserGrpcController implements IUserServiceServer {
       const protoUser = UserGrpcMapper.toProto(user);
       callback(null, protoUser);
     } catch (error) {
+      console.error("Error in CreateUser:", error);
       this.handleError(error, callback);
     }
   }
@@ -77,6 +78,7 @@ export class UserGrpcController implements IUserServiceServer {
 
       callback(null, protoMatches);
     } catch (error) {
+      console.error("Error in GetPotentialMatches:", error);
       this.handleError(error, callback);
     }
   }
@@ -104,8 +106,11 @@ export class UserGrpcController implements IUserServiceServer {
         genderPreference: preferences.getGenderpreference() || undefined,
       });
 
-      callback(null, null);
+      const updatedUser = await this.getUserByIdUseCase.execute(userId);
+      const protoUser = UserGrpcMapper.toProto(updatedUser);
+      callback(null, protoUser);
     } catch (error) {
+      console.error("Error in UpdateUserPreferences:", error);
       this.handleError(error, callback);
     }
   }
@@ -114,12 +119,17 @@ export class UserGrpcController implements IUserServiceServer {
    * Trata erros e converte para códigos gRPC apropriados
    */
   private handleError(error: unknown, callback: grpc.sendUnaryData<any>): void {
+    const message =
+      error instanceof Error && error.message && error.message.trim().length > 0
+        ? error.message
+        : "Internal server error";
+
     if (error instanceof Error) {
       // Mapeia exceções de domínio para códigos gRPC
       if (error.name === "UserNotFoundException") {
         callback({
           code: grpc.status.NOT_FOUND,
-          message: error.message,
+          message,
         });
         return;
       }
@@ -127,7 +137,7 @@ export class UserGrpcController implements IUserServiceServer {
       if (error.name === "EmailAlreadyExistsException") {
         callback({
           code: grpc.status.ALREADY_EXISTS,
-          message: error.message,
+          message,
         });
         return;
       }
@@ -136,7 +146,7 @@ export class UserGrpcController implements IUserServiceServer {
     // Erro genérico
     callback({
       code: grpc.status.INTERNAL,
-      message: error instanceof Error ? error.message : "Internal server error",
+      message,
     });
   }
 }

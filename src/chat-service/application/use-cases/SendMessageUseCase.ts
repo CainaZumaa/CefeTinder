@@ -1,11 +1,11 @@
 export interface SendMessageUseCase {
-  senderId: string;
-  receiverId: string;
-  roomId: string;
-  content: string;
-  replyTo?: string;
-  metadata?: Record<string, any>;
-  correlationId?: string;
+  readonly senderId: string;
+  readonly receiverId: string;
+  readonly roomId: string;
+  readonly content: string;
+  readonly replyTo?: string;
+  readonly metadata?: Record<string, any>;
+  readonly correlationId?: string;
 }
 
 export class SendMessageUseCase implements SendMessageUseCase {
@@ -23,19 +23,19 @@ export class SendMessageUseCase implements SendMessageUseCase {
 
   private validate(): void {
     if (!this.senderId || this.senderId.trim().length === 0) {
-      throw new Error('Sender ID is required');
+      throw new Error("Sender ID is required");
     }
     if (!this.receiverId || this.receiverId.trim().length === 0) {
-      throw new Error('Receiver ID is required');
+      throw new Error("Receiver ID is required");
     }
     if (!this.roomId || this.roomId.trim().length === 0) {
-      throw new Error('Room ID is required');
+      throw new Error("Room ID is required");
     }
     if (!this.content || this.content.trim().length === 0) {
-      throw new Error('Content is required');
+      throw new Error("Content is required");
     }
     if (this.content.length > 5000) {
-      throw new Error('Content cannot exceed 5000 characters');
+      throw new Error("Content cannot exceed 5000 characters");
     }
   }
 
@@ -48,7 +48,7 @@ export class SendMessageUseCase implements SendMessageUseCase {
       replyTo: this.replyTo,
       metadata: this.metadata,
       correlationId: this.correlationId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
   }
 }

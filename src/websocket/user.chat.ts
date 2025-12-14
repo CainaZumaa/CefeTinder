@@ -21,16 +21,19 @@ socket.on("chat:sys", (msg: string) => {
   console.log(`\x1b[36m[SISTEMA] ${msg}\x1b[0m`);
 });
 
-socket.on("chat:msg", (msg: { de: string; texto: string; ts: number; email: string }) => {
-  const hora = new Date(msg.ts).toLocaleTimeString();
-  console.log(`[${hora}] ${msg.de}: ${msg.texto}`);
-});
+socket.on(
+  "chat:msg",
+  (msg: { de: string; texto: string; ts: number; email: string }) => {
+    const hora = new Date(msg.ts).toLocaleTimeString();
+    console.log(`[${hora}] ${msg.de}: ${msg.texto}`);
+  }
+);
 
 socket.on("chat:error", (error: string) => {
   console.log(`\x1b[31m[ERRO] ${error}\x1b[0m`);
 });
 
-socket.on("disconnect", (reason) => {
+socket.on("disconnect", (reason: string) => {
   console.log("Desconectado:", reason);
   rl.close();
 });
@@ -41,25 +44,30 @@ function startAuthentication() {
       console.log("Email é obrigatório!");
       return startAuthentication();
     }
-    
+
     rl.question("Nome da sala: ", (room) => {
       if (!room.trim()) {
         console.log("Nome da sala é obrigatório!");
         return startAuthentication();
       }
-      
+
       currentRoom = room.trim();
-      
+
       // Entra na sala com o email
-      socket.emit("chat:join", room, { email: email.trim() }, (response: any) => {
-        if (response && response.error) {
-          console.log(`Erro: ${response.error}`);
-          startAuthentication();
-        } else {
-          isAuthenticated = true;
-          startChat();
+      socket.emit(
+        "chat:join",
+        room,
+        { email: email.trim() },
+        (response: any) => {
+          if (response && response.error) {
+            console.log(`Erro: ${response.error}`);
+            startAuthentication();
+          } else {
+            isAuthenticated = true;
+            startChat();
+          }
         }
-      });
+      );
     });
   });
 }
@@ -76,7 +84,7 @@ function startChat() {
     if (!isAuthenticated) return;
 
     const command = texto.trim();
-    
+
     if (command === "/exit") {
       console.log("Saindo do chat...");
       socket.disconnect();
@@ -92,7 +100,9 @@ function startChat() {
     } else if (command === "/help") {
       showHelp();
     } else if (command.startsWith("/")) {
-      console.log("Comando não reconhecido. Digite /help para ver os comandos disponíveis.");
+      console.log(
+        "Comando não reconhecido. Digite /help para ver os comandos disponíveis."
+      );
     } else if (command) {
       socket.emit("chat:msg", { room: currentRoom, texto: command });
     }
@@ -109,7 +119,7 @@ function showHelp() {
 }
 
 // Manipulação graceful de shutdown
-process.on('SIGINT', () => {
+process.on("SIGINT", () => {
   console.log("\nSaindo...");
   socket.disconnect();
   rl.close();

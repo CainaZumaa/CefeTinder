@@ -9,15 +9,14 @@ import {
   Matches,
 } from "../proto/match_pb";
 import * as grpc from "@grpc/grpc-js";
-import { NotificationObserver } from "../../patterns/observer";
-import { getNotificationService } from "../../services/notification/NotificationService";
+import { RabbitMQMatchEventsPublisher } from "../../messaging/MatchEventsPublisher";
 
-const service = new MatchService();
+const rabbitUrl = process.env.RABBITMQ_URL;
+const eventsPublisher = rabbitUrl
+  ? new RabbitMQMatchEventsPublisher(rabbitUrl)
+  : undefined;
 
-// Observer Pattern: Attach notification observer to match service
-const notificationService = getNotificationService();
-const notificationObserver = new NotificationObserver(notificationService);
-service.getSubject().attach(notificationObserver);
+const service = new MatchService(eventsPublisher);
 
 export const matchServiceImplementation: IMatchServiceServer = {
   getMatches: async (

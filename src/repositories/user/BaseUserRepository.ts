@@ -41,6 +41,9 @@ export abstract class BaseUserRepository implements IUserRepository {
   }
 
   // metodos abstratos que devem ser implementados pelas subclasses
+  abstract getUserByEmail(
+    email: string
+  ): User | PromiseLike<User | null> | null;
   abstract createUser(userData: Partial<IUser>): Promise<User>;
   abstract getUserById(id: string): Promise<User | null>;
   abstract updateUserPreferences(

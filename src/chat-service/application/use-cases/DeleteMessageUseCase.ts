@@ -1,9 +1,9 @@
 export interface DeleteMessageUseCase {
-  messageId: string;
-  userId: string;
-  roomId: string;
-  deleteForEveryone?: boolean;
-  correlationId?: string;
+  readonly messageId: string;
+  readonly userId: string;
+  readonly roomId: string;
+  readonly deleteForEveryone: boolean;
+  readonly correlationId?: string;
 }
 
 export class DeleteMessageUseCase implements DeleteMessageUseCase {
@@ -19,13 +19,13 @@ export class DeleteMessageUseCase implements DeleteMessageUseCase {
 
   private validate(): void {
     if (!this.messageId || this.messageId.trim().length === 0) {
-      throw new Error('Message ID is required');
+      throw new Error("Message ID is required");
     }
     if (!this.userId || this.userId.trim().length === 0) {
-      throw new Error('User ID is required');
+      throw new Error("User ID is required");
     }
     if (!this.roomId || this.roomId.trim().length === 0) {
-      throw new Error('Room ID is required');
+      throw new Error("Room ID is required");
     }
   }
 
@@ -36,7 +36,7 @@ export class DeleteMessageUseCase implements DeleteMessageUseCase {
       roomId: this.roomId,
       deleteForEveryone: this.deleteForEveryone,
       correlationId: this.correlationId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
   }
 }

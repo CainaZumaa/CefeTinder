@@ -1,5 +1,4 @@
-import { Content } from '../value-objects/Content';
-import { MessageValidationException } from '../exceptions/MessageValidationException';
+import { MessageValidationException } from "../exceptions/MessageValidationException";
 
 export interface ValidationRule {
   validate(content: string): boolean;
@@ -10,24 +9,24 @@ export class MessageValidator {
   private readonly rules: ValidationRule[] = [
     {
       validate: (content: string) => content.trim().length > 0,
-      errorMessage: 'Message cannot be empty'
+      errorMessage: "Message cannot be empty",
     },
     {
       validate: (content: string) => content.length <= 5000,
-      errorMessage: 'Message cannot exceed 5000 characters'
+      errorMessage: "Message cannot exceed 5000 characters",
     },
     {
       validate: (content: string) => !this.containsSpam(content),
-      errorMessage: 'Message contains spam content'
+      errorMessage: "Message contains spam content",
     },
     {
       validate: (content: string) => !this.containsMaliciousContent(content),
-      errorMessage: 'Message contains malicious content'
+      errorMessage: "Message contains malicious content",
     },
     {
       validate: (content: string) => this.isRateLimited(),
-      errorMessage: 'Message rate limit exceeded'
-    }
+      errorMessage: "Message rate limit exceeded",
+    },
   ];
 
   private lastMessageTimes: Map<string, number[]> = new Map();
@@ -48,10 +47,10 @@ export class MessageValidator {
     const spamPatterns = [
       /(?:https?:\/\/)?(?:www\.)?[a-z0-9-]+(?:\.[a-z]{2,}){1,}/gi,
       /(free|money|cash|prize|winner|click here)/gi,
-      /([!$%^&*()_+|~=`{}\[\]:";'<>?,.\/]{5,})/
+      /([!$%^&*()_+|~=`{}\[\]:";'<>?,.\/]{5,})/,
     ];
 
-    return spamPatterns.some(pattern => pattern.test(content));
+    return spamPatterns.some((pattern) => pattern.test(content));
   }
 
   private containsMaliciousContent(content: string): boolean {
@@ -62,10 +61,10 @@ export class MessageValidator {
       /eval\(/gi,
       /document\./gi,
       /window\./gi,
-      /alert\(/gi
+      /alert\(/gi,
     ];
 
-    return maliciousPatterns.some(pattern => pattern.test(content));
+    return maliciousPatterns.some((pattern) => pattern.test(content));
   }
 
   private isRateLimited(): boolean {
@@ -76,14 +75,16 @@ export class MessageValidator {
   private updateRateLimit(senderId: string): void {
     const now = Date.now();
     const userMessages = this.lastMessageTimes.get(senderId) || [];
-    
+
     // Remover mensagens fora da janela de tempo
     const recentMessages = userMessages.filter(
-      time => now - time < this.RATE_LIMIT_WINDOW
+      (time) => now - time < this.RATE_LIMIT_WINDOW
     );
 
     if (recentMessages.length >= this.RATE_LIMIT) {
-      throw new MessageValidationException('Rate limit exceeded. Please wait before sending more messages.');
+      throw new MessageValidationException(
+        "Rate limit exceeded. Please wait before sending more messages."
+      );
     }
 
     recentMessages.push(now);
@@ -94,9 +95,9 @@ export class MessageValidator {
     const userMessages = this.lastMessageTimes.get(senderId) || [];
     const now = Date.now();
     const recentMessages = userMessages.filter(
-      time => now - time < this.RATE_LIMIT_WINDOW
+      (time) => now - time < this.RATE_LIMIT_WINDOW
     );
-    
+
     return recentMessages.length < this.RATE_LIMIT;
   }
 
@@ -104,9 +105,9 @@ export class MessageValidator {
     const userMessages = this.lastMessageTimes.get(senderId) || [];
     const now = Date.now();
     const recentMessages = userMessages.filter(
-      time => now - time < this.RATE_LIMIT_WINDOW
+      (time) => now - time < this.RATE_LIMIT_WINDOW
     );
-    
+
     return Math.max(0, this.RATE_LIMIT - recentMessages.length);
   }
 

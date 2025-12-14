@@ -1,9 +1,15 @@
-import { Pool, QueryResult } from 'pg';
-import { IMessageRepository, MessageSearchCriteria } from '../../../../domain/repositories/IMessageRepository';
-import { Message } from '../../../../domain/entities/Message';
-import { MessageId, Content, SenderId, ReceiverId, ChatRoomId, Timestamp } from '../../../../domain/value-objects';
-import { MessageStatus } from '../../../../domain/enums/MessageStatus';
-import { ChatEntityMapper, MessageEntity } from '../mappers/ChatEntityMapper';
+import { Pool } from "pg";
+import {
+  IMessageRepository,
+  MessageSearchCriteria,
+} from "../../domain/repositories/IMessageRepository";
+// /domain/repositories/IMessageRepository
+import { Message } from "../../domain/entities/Message";
+import { MessageId } from "../../domain/value-objects/MessageId";
+import { ChatRoomId } from "../../domain/value-objects/ChatRoomId";
+import { SenderId } from "../../domain/value-objects/SenderId";
+import { MessageStatus } from "../../domain/entities/Message";
+import { ChatEntityMapper, MessageEntity } from "./mappers/ChatEntityMapper";
 
 export class PostgresChatRepository implements IMessageRepository {
   private pool: Pool;
@@ -47,16 +53,16 @@ export class PostgresChatRepository implements IMessageRepository {
     try {
       await this.pool.query(createTableQuery);
       await this.pool.query(createIndexesQuery);
-      console.log('Messages table initialized');
+      console.log("Messages table initialized");
     } catch (error) {
-      console.error('Error initializing messages table:', error);
+      console.error("Error initializing messages table:", error);
       throw error;
     }
   }
 
   async save(message: Message): Promise<void> {
     const entity = ChatEntityMapper.toMessageEntity(message);
-    
+
     const query = `
       INSERT INTO messages (
         id, content, sender_id, receiver_id, room_id, status,
@@ -84,16 +90,16 @@ export class PostgresChatRepository implements IMessageRepository {
       entity.read_at,
       entity.reply_to,
       JSON.stringify(entity.metadata),
-      entity.deleted_for
+      entity.deleted_for,
     ]);
   }
 
   async findById(id: MessageId): Promise<Message | null> {
-    const query = 'SELECT * FROM messages WHERE id = $1';
+    const query = "SELECT * FROM messages WHERE id = $1";
     const result = await this.pool.query<MessageEntity>(query, [id.value]);
-    
-    return result.rows.length > 0 
-      ? ChatEntityMapper.toMessageDomain(result.rows[0]) 
+
+    return result.rows.length > 0
+      ? ChatEntityMapper.toMessageDomain(result.rows[0])
       : null;
   }
 
@@ -102,11 +108,15 @@ export class PostgresChatRepository implements IMessageRepository {
   }
 
   async delete(id: MessageId): Promise<void> {
-    const query = 'DELETE FROM messages WHERE id = $1';
+    const query = "DELETE FROM messages WHERE id = $1";
     await this.pool.query(query, [id.value]);
   }
 
-  async findByRoomId(roomId: ChatRoomId, limit: number = 50, offset: number = 0): Promise<Message[]> {
+  async findByRoomId(
+    roomId: ChatRoomId,
+    limit: number = 50,
+    offset: number = 0
+  ): Promise<Message[]> {
     const query = `
       SELECT * FROM messages 
       WHERE room_id = $1 
@@ -117,9 +127,9 @@ export class PostgresChatRepository implements IMessageRepository {
 
     const result = await this.pool.query<MessageEntity>(query, [
       roomId.value,
-      'system',
+      "system",
       limit,
-      offset
+      offset,
     ]);
 
     return ChatEntityMapper.toMessagesDomain(result.rows).reverse();
@@ -132,7 +142,9 @@ export class PostgresChatRepository implements IMessageRepository {
       ORDER BY sent_at DESC
     `;
 
-    const result = await this.pool.query<MessageEntity>(query, [senderId.value]);
+    const result = await this.pool.query<MessageEntity>(query, [
+      senderId.value,
+    ]);
     return ChatEntityMapper.toMessagesDomain(result.rows);
   }
 
@@ -150,7 +162,7 @@ export class PostgresChatRepository implements IMessageRepository {
   }
 
   async search(criteria: MessageSearchCriteria): Promise<Message[]> {
-    const conditions: string[] = ['1 = 1'];
+    const conditions: string[] = ["1 = 1"];
     const params: any[] = [];
     let paramCount = 1;
 
@@ -195,14 +207,14 @@ export class PostgresChatRepository implements IMessageRepository {
 
     const query = `
       SELECT * FROM messages 
-      WHERE ${conditions.join(' AND ')}
+      WHERE ${conditions.join(" AND ")}
       ORDER BY sent_at DESC 
       LIMIT $${paramCount} OFFSET $${paramCount + 1}
     `;
 
     params.push(limit, offset);
     const result = await this.pool.query<MessageEntity>(query, params);
-    
+
     return ChatEntityMapper.toMessagesDomain(result.rows);
   }
 
@@ -213,11 +225,16 @@ export class PostgresChatRepository implements IMessageRepository {
         AND (deleted_for IS NULL OR array_length(deleted_for, 1) = 0)
     `;
 
-    const result = await this.pool.query<{ count: string }>(query, [roomId.value]);
+    const result = await this.pool.query<{ count: string }>(query, [
+      roomId.value,
+    ]);
     return parseInt(result.rows[0].count, 10);
   }
 
-  async countUnreadByUser(userId: string, roomId?: ChatRoomId): Promise<number> {
+  async countUnreadByUser(
+    userId: string,
+    roomId?: ChatRoomId
+  ): Promise<number> {
     let query = `
       SELECT COUNT(*) FROM messages 
       WHERE receiver_id = $1 
@@ -240,9 +257,9 @@ export class PostgresChatRepository implements IMessageRepository {
     if (messages.length === 0) return;
 
     const client = await this.pool.connect();
-    
+
     try {
-      await client.query('BEGIN');
+      await client.query("BEGIN");
 
       for (const message of messages) {
         const entity = ChatEntityMapper.toMessageEntity(message);
@@ -272,13 +289,13 @@ export class PostgresChatRepository implements IMessageRepository {
           entity.read_at,
           entity.reply_to,
           JSON.stringify(entity.metadata),
-          entity.deleted_for
+          entity.deleted_for,
         ]);
       }
 
-      await client.query('COMMIT');
+      await client.query("COMMIT");
     } catch (error) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       throw error;
     } finally {
       client.release();
@@ -316,7 +333,7 @@ export class PostgresChatRepository implements IMessageRepository {
   async markManyAsRead(messageIds: MessageId[]): Promise<void> {
     if (messageIds.length === 0) return;
 
-    const ids = messageIds.map(id => id.value);
+    const ids = messageIds.map((id) => id.value);
     const query = `
       UPDATE messages 
       SET status = 'read', 
@@ -337,7 +354,7 @@ export class PostgresChatRepository implements IMessageRepository {
     `;
 
     const result = await this.pool.query(query);
-    return result.rowCount;
+    return result.rowCount ?? 0;
   }
 
   async archiveMessages(roomId: ChatRoomId): Promise<void> {
@@ -358,12 +375,17 @@ export class PostgresChatRepository implements IMessageRepository {
     roomId: ChatRoomId,
     page: number,
     pageSize: number
-  ): Promise<{ messages: Message[]; total: number; page: number; totalPages: number }> {
+  ): Promise<{
+    messages: Message[];
+    total: number;
+    page: number;
+    totalPages: number;
+  }> {
     const offset = (page - 1) * pageSize;
 
     const [countResult, messagesResult] = await Promise.all([
       this.pool.query<{ count: string }>(
-        'SELECT COUNT(*) FROM messages WHERE room_id = $1',
+        "SELECT COUNT(*) FROM messages WHERE room_id = $1",
         [roomId.value]
       ),
       this.pool.query<MessageEntity>(
@@ -372,18 +394,20 @@ export class PostgresChatRepository implements IMessageRepository {
          ORDER BY sent_at DESC 
          LIMIT $2 OFFSET $3`,
         [roomId.value, pageSize, offset]
-      )
+      ),
     ]);
 
     const total = parseInt(countResult.rows[0].count, 10);
-    const messages = ChatEntityMapper.toMessagesDomain(messagesResult.rows).reverse();
+    const messages = ChatEntityMapper.toMessagesDomain(
+      messagesResult.rows
+    ).reverse();
     const totalPages = Math.ceil(total / pageSize);
 
     return {
       messages,
       total,
       page,
-      totalPages
+      totalPages,
     };
   }
 
@@ -402,19 +426,22 @@ export class PostgresChatRepository implements IMessageRepository {
     const result = await this.pool.query<MessageEntity>(query, [
       roomId.value,
       startDate.toISOString(),
-      endDate.toISOString()
+      endDate.toISOString(),
     ]);
 
     return ChatEntityMapper.toMessagesDomain(result.rows);
   }
 
   async exists(id: MessageId): Promise<boolean> {
-    const query = 'SELECT 1 FROM messages WHERE id = $1 LIMIT 1';
+    const query = "SELECT 1 FROM messages WHERE id = $1 LIMIT 1";
     const result = await this.pool.query(query, [id.value]);
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
-  async hasUnreadMessages(userId: string, roomId: ChatRoomId): Promise<boolean> {
+  async hasUnreadMessages(
+    userId: string,
+    roomId: ChatRoomId
+  ): Promise<boolean> {
     const query = `
       SELECT 1 FROM messages 
       WHERE room_id = $1 
@@ -424,7 +451,7 @@ export class PostgresChatRepository implements IMessageRepository {
     `;
 
     const result = await this.pool.query(query, [roomId.value, userId]);
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async findMessagesBefore(
@@ -448,7 +475,7 @@ export class PostgresChatRepository implements IMessageRepository {
     const result = await this.pool.query<MessageEntity>(query, [
       roomId.value,
       beforeMessage.sentAt.isoString,
-      limit
+      limit,
     ]);
 
     return ChatEntityMapper.toMessagesDomain(result.rows).reverse();
@@ -466,9 +493,8 @@ export class PostgresChatRepository implements IMessageRepository {
       paramCount++;
     }
 
-    const whereClause = conditions.length > 0 
-      ? `WHERE ${conditions.join(' AND ')} AND` 
-      : 'WHERE';
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(" AND ")} AND` : "WHERE";
 
     const sqlQuery = `
       SELECT * FROM messages 
@@ -519,11 +545,14 @@ export class PostgresChatRepository implements IMessageRepository {
     return {
       total: parseInt(row.total, 10),
       unread: parseInt(row.unread, 10),
-      lastMessageAt: row.last_message_at
+      lastMessageAt: row.last_message_at,
     };
   }
 
-  async getMessagesByStatus(status: MessageStatus, limit: number = 100): Promise<Message[]> {
+  async getMessagesByStatus(
+    status: MessageStatus,
+    limit: number = 100
+  ): Promise<Message[]> {
     const query = `
       SELECT * FROM messages 
       WHERE status = $1
@@ -557,7 +586,7 @@ export class PostgresChatRepository implements IMessageRepository {
     `;
 
     const result = await this.pool.query(query);
-    return result.rowCount;
+    return result.rowCount ?? 0;
   }
 
   async getStatistics(): Promise<{
@@ -570,28 +599,34 @@ export class PostgresChatRepository implements IMessageRepository {
     today.setHours(0, 0, 0, 0);
 
     const queries = await Promise.all([
-      this.pool.query('SELECT COUNT(*) as count FROM messages'),
-      this.pool.query('SELECT COUNT(*) as count FROM messages WHERE sent_at >= $1', [today]),
-      this.pool.query('SELECT COUNT(DISTINCT sender_id) as count FROM messages'),
+      this.pool.query("SELECT COUNT(*) as count FROM messages"),
+      this.pool.query(
+        "SELECT COUNT(*) as count FROM messages WHERE sent_at >= $1",
+        [today]
+      ),
+      this.pool.query(
+        "SELECT COUNT(DISTINCT sender_id) as count FROM messages"
+      ),
       this.pool.query(`
         SELECT room_id, COUNT(*) as count 
         FROM messages 
         GROUP BY room_id 
         ORDER BY count DESC 
         LIMIT 1
-      `)
+      `),
     ]);
 
     const totalMessages = parseInt(queries[0].rows[0].count, 10);
     const messagesToday = parseInt(queries[1].rows[0].count, 10);
     const uniqueSenders = parseInt(queries[2].rows[0].count, 10);
-    const mostActiveRoom = queries[3].rows.length > 0 ? queries[3].rows[0].room_id : null;
+    const mostActiveRoom =
+      queries[3].rows.length > 0 ? queries[3].rows[0].room_id : null;
 
     return {
       totalMessages,
       messagesToday,
       avgMessagesPerUser: uniqueSenders > 0 ? totalMessages / uniqueSenders : 0,
-      mostActiveRoom
+      mostActiveRoom,
     };
   }
 }

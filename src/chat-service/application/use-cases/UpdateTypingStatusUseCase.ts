@@ -1,8 +1,8 @@
 export interface UpdateTypingStatusUseCase {
-  userId: string;
-  roomId: string;
-  isTyping: boolean;
-  correlationId?: string;
+  readonly userId: string;
+  readonly roomId: string;
+  readonly isTyping: boolean;
+  readonly correlationId?: string;
 }
 
 export class UpdateTypingStatusUseCase implements UpdateTypingStatusUseCase {
@@ -17,10 +17,10 @@ export class UpdateTypingStatusUseCase implements UpdateTypingStatusUseCase {
 
   private validate(): void {
     if (!this.userId || this.userId.trim().length === 0) {
-      throw new Error('User ID is required');
+      throw new Error("User ID is required");
     }
     if (!this.roomId || this.roomId.trim().length === 0) {
-      throw new Error('Room ID is required');
+      throw new Error("Room ID is required");
     }
   }
 
@@ -30,7 +30,7 @@ export class UpdateTypingStatusUseCase implements UpdateTypingStatusUseCase {
       roomId: this.roomId,
       isTyping: this.isTyping,
       correlationId: this.correlationId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
   }
 }

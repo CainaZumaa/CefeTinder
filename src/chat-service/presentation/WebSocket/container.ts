@@ -1,10 +1,8 @@
 import { Server } from "socket.io";
-import { ChatWebSocketController } from "./controllers/ChatWebSocketController";
-import { ChatWebSocketMapper } from "./mappers/ChatWebSocketMapper";
+import { ChatWebSocketController } from "./ChatWebSocketController";
 
 export class ChatWebSocketContainer {
   static createController(io: Server): ChatWebSocketController {
-    const mapper = new ChatWebSocketMapper();
-    return new ChatWebSocketController(io, mapper);
+    return new ChatWebSocketController(io);
   }
 }

@@ -1,4 +1,17 @@
 services:
+  queue-notification:
+    image: rabbitmq:3-management
+    container_name: cefet-tinder-rabbitmq
+    restart: always
+    networks:
+      - cefet-tinder-network
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: "guest"
+      RABBITMQ_DEFAULT_PASS: "guest"
+
   kong:
     image: kong:latest
     container_name: cefet-tinder-kong
@@ -27,6 +40,8 @@ services:
     restart: always
     networks:
       - cefet-tinder-network
+    expose:
+      - "4000"
     environment:
       USER_SERVICE_ADDRESS: "user-service:50051"
       MATCH_SERVICE_ADDRESS: "match-service:50052"
@@ -67,7 +82,7 @@ services:
     environment:
       DATABASE_URL: "postgresql://user:secret@db-match:5432/match"
       MATCH_SERVICE_ADDRESS: "0.0.0.0:50052"
-      NOTIFICATION_SERVICE_URL: "http://notification-service:8080"
+      RABBITMQ_URL: "amqp://guest:guest@queue-notification:5672"
     restart: always
     expose:
       - "50052"
@@ -76,6 +91,7 @@ services:
     depends_on:
       - db-match
       - notification-service
+      - queue-notification
     command: sh -c "npm run start:grpc:match-service"
 
   notification-service:
@@ -87,6 +103,10 @@ services:
       - "8080:8080"
     networks:
       - cefet-tinder-network
+    environment:
+      RABBITMQ_URL: "amqp://guest:guest@queue-notification:5672"
+    depends_on:
+      - queue-notification
     deploy:
       resources:
         limits:
@@ -108,7 +128,7 @@ services:
       - "5433:5432"
     volumes:
       - db-users-data:/var/lib/postgresql/data
-      - ./infra/scripts/user.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./migration_postgresql.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
     deploy:
       resources:
         limits:
@@ -129,7 +149,7 @@ services:
       - "5434:5432"
     volumes:
       - db-match-data:/var/lib/postgresql/data
-      - ./infra/scripts/match.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./migration_match.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
     deploy:
       resources:
         limits:

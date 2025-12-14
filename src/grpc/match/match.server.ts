@@ -1,3 +1,4 @@
+import "dotenv/config";
 import * as grpc from '@grpc/grpc-js';
 import { MatchServiceService } from '../proto/match_grpc_pb';
 import { matchServiceImplementation } from './match.implementation';

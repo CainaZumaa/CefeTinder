@@ -1,4 +1,4 @@
-import { IUserRepository } from "../../../../repositories/user/interface";
+import { IUser } from "../../../../types";
 
 export interface JoinValidation {
   valid: boolean;
@@ -23,9 +23,16 @@ export class ChatWebSocketMapper {
     return { valid: true };
   }
 
-  validateMessage(user: IUserRepository | undefined, room: string, texto: string): MessageValidation {
+  validateMessage(
+    user: IUser | undefined,
+    room: string,
+    texto: string
+  ): MessageValidation {
     if (!user) {
-      return { valid: false, error: "Você precisa entrar em uma sala primeiro" };
+      return {
+        valid: false,
+        error: "Você precisa entrar em uma sala primeiro",
+      };
     }
 
     if (!room) {
@@ -38,25 +45,31 @@ export class ChatWebSocketMapper {
     }
 
     if (mensagemTrimmed.length > 1000) {
-      return { valid: false, error: "Mensagem muito longa (máximo 1000 caracteres)" };
+      return {
+        valid: false,
+        error: "Mensagem muito longa (máximo 1000 caracteres)",
+      };
     }
 
     return { valid: true };
   }
 
-  mapToMessagePayload(user: IUserRepository, texto: string) {
+  mapToMessagePayload(user: IUser, texto: string) {
     return {
-      de: user.getUserByEmail,
-      email: user.getUserByEmail,
+      de: user.name,
+      email: user.email,
       texto,
       ts: Date.now(),
     };
   }
 
-  mapToUserResponse(user: IUserRepository | undefined) {
-    return user ? {
-      email: user.getUserByEmail,
-      id: user.getUserById
-    } : null;
+  mapToUserResponse(user: IUser | undefined) {
+    return user
+      ? {
+          name: user.name,
+          email: user.email,
+          id: user.id,
+        }
+      : null;
   }
 }

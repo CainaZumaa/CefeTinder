@@ -3,11 +3,16 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("Missing DATABASE_URL environment variable");
+const connectionString =
+  process.env.MATCH_SERVICE_DATABASE_URL || process.env.DATABASE_URL;
+
+if (!connectionString) {
+  throw new Error(
+    "Missing MATCH_SERVICE_DATABASE_URL or DATABASE_URL environment variable"
+  );
 }
 
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString,
   ssl: false
 });
