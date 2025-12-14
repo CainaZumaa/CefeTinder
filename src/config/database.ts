@@ -14,5 +14,5 @@ if (!connectionString) {
 
 export const pool = new Pool({
   connectionString,
-  ssl: false
+  ssl: false,
 });

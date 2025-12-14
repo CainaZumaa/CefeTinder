@@ -173,5 +173,4 @@ export class MatchService extends BaseService {
 
     return result.rows as Match[];
   }
-
 }

@@ -14,7 +14,10 @@ export type MatchRoutingKey =
   | "match.dislike_sent";
 
 export interface MatchEventsPublisher {
-  publish(routingKey: MatchRoutingKey, message: Record<string, unknown>): Promise<void>;
+  publish(
+    routingKey: MatchRoutingKey,
+    message: Record<string, unknown>
+  ): Promise<void>;
 }
 
 export class RabbitMQMatchEventsPublisher implements MatchEventsPublisher {

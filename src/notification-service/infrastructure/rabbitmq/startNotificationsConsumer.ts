@@ -50,7 +50,10 @@ export async function startNotificationsConsumer(params: {
 
         console.log("[RabbitMQ] received", routingKey);
 
-        if (routingKey === "match.like_sent" || routingKey === "match.super_like_sent") {
+        if (
+          routingKey === "match.like_sent" ||
+          routingKey === "match.super_like_sent"
+        ) {
           const fromUserId = String(payload.fromUserId ?? "");
           const toUserId = String(payload.toUserId ?? "");
           const isSuperLike = Boolean(payload.isSuperLike);
