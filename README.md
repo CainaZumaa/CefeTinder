@@ -58,6 +58,17 @@ Instale as dependências e inicie os serviços com Docker Compose:
 docker-compose up --build -d
 ```
 
+## Executando testes com jmeter
+
+O projeto inclui testes de carga utilizando Apache JMeter. Para executar os testes, siga os passos abaixo:
+Use o arquivo `jmeter/test.jmx` para definir o plano de teste.
+
+Rode o seguinte comando para executar os testes:
+
+```bash
+docker run --rm -v "%cd%\jmeter:/tests" -w /tests justb4/jmeter -n -t test.jmx -l results.jtl -e -o report
+```
+
 ## Funcionamento do API Gateway (Kong)
 
 O Kong API Gateway gerencia o roteamento das requisições para os serviços apropriados. Ele expõe as seguintes rotas:
