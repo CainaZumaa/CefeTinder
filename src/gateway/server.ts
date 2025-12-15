@@ -13,7 +13,7 @@ const services = [
   },
   {
     name: "Match Service (gRPC)",
-    script: path.join(__dirname, "../grpc/match/match.server.ts"),
+    script: path.join(__dirname, "../match-service/presentation/grpc/server.ts"),
     color: "\x1b[35m", // Magenta
   },
   {
