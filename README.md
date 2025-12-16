@@ -11,6 +11,7 @@ O projeto utiliza uma arquitetura de microsserviços com os seguintes componente
 ![Diagrama de Arquitetura](./CEFET_TINDER.drawio.png)
 
 - **Kong API Gateway**: Roteamento e gerenciamento de APIs
+- **RabbitMQ**: Fila de mensagens para comunicação assíncrona
 - **GraphQL**: API GraphQL para o frontend e gerenciamento de rotas
 - **User Service**: Gerenciamento de usuários e preferências (gRPC)
 - **Match Service**: Sistema de matching e likes (gRPC)
