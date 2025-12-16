@@ -1,47 +1,32 @@
-export interface MarkAsReadUseCase {
-  readonly messageId: string;
-  readonly readerId: string;
-  readonly roomId: string;
-  readonly readAt?: string;
-  readonly correlationId?: string;
-}
+import { MessageId } from "../../domain/value-objects/MessageId";
+import { IMessageRepository } from "../../domain/repositories/IMessageRepository";
+import { EventBus } from "../ports/EventBus";
+import { MessageMapper } from "../mappers/MessageMapper";
+import { MessageDTO } from "../dtos/MessageDTO";
 
-export class MarkAsReadUseCase implements MarkAsReadUseCase {
-  constructor(
-    public readonly messageId: string,
-    public readonly readerId: string,
-    public readonly roomId: string,
-    public readonly readAt?: string,
-    public readonly correlationId?: string
-  ) {
-    this.validate();
-  }
+export class MarkAsReadUseCase {
+    constructor(
+        private readonly messageRepository: IMessageRepository,
+        private readonly eventBus: EventBus
+    ) {}
 
-  private validate(): void {
-    if (!this.messageId || this.messageId.trim().length === 0) {
-      throw new Error("Message ID is required");
-    }
-    if (!this.readerId || this.readerId.trim().length === 0) {
-      throw new Error("Reader ID is required");
-    }
-    if (!this.roomId || this.roomId.trim().length === 0) {
-      throw new Error("Room ID is required");
-    }
-    if (this.readAt) {
-      const date = new Date(this.readAt);
-      if (isNaN(date.getTime())) {
-        throw new Error("Invalid readAt date format");
-      }
-    }
-  }
+    async execute(messageId: string, readerId: string): Promise<MessageDTO> {
+        const message = await this.messageRepository.findById(new MessageId(messageId));
+        
+        if (!message) {
+            throw new Error("Message not found");
+        }
 
-  toJSON(): Record<string, any> {
-    return {
-      messageId: this.messageId,
-      readerId: this.readerId,
-      roomId: this.roomId,
-      readAt: this.readAt || new Date().toISOString(),
-      correlationId: this.correlationId,
-    };
-  }
+        message.markAsRead(readerId);
+        
+        await this.messageRepository.update(message);
+
+        const events = message.domainEvents;
+        for (const event of events) {
+            await this.eventBus.publish(event);
+        }
+        message.clearEvents();
+
+        return MessageMapper.toDTO(message);
+    }
 }

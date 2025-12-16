@@ -1,117 +1,34 @@
+import { Content } from "../value-objects/Content";
 import { MessageValidationException } from "../exceptions/MessageValidationException";
 
-export interface ValidationRule {
-  validate(content: string): boolean;
-  errorMessage: string;
-}
-
 export class MessageValidator {
-  private readonly rules: ValidationRule[] = [
-    {
-      validate: (content: string) => content.trim().length > 0,
-      errorMessage: "Message cannot be empty",
-    },
-    {
-      validate: (content: string) => content.length <= 5000,
-      errorMessage: "Message cannot exceed 5000 characters",
-    },
-    {
-      validate: (content: string) => !this.containsSpam(content),
-      errorMessage: "Message contains spam content",
-    },
-    {
-      validate: (content: string) => !this.containsMaliciousContent(content),
-      errorMessage: "Message contains malicious content",
-    },
-    {
-      validate: (content: string) => this.isRateLimited(),
-      errorMessage: "Message rate limit exceeded",
-    },
-  ];
+    static validateContent(content: string): void {
+        if (!content || content.trim().length === 0) {
+            throw new MessageValidationException("Message content cannot be empty");
+        }
 
-  private lastMessageTimes: Map<string, number[]> = new Map();
-  private readonly RATE_LIMIT = 10; // mensagens
-  private readonly RATE_LIMIT_WINDOW = 60000; // 1 minuto em milissegundos
-
-  validate(content: string, senderId: string): void {
-    for (const rule of this.rules) {
-      if (!rule.validate(content)) {
-        throw new MessageValidationException(rule.errorMessage);
-      }
+        if (content.length > 2000) {
+            throw new MessageValidationException("Message content cannot exceed 2000 characters");
+        }
     }
 
-    this.updateRateLimit(senderId);
-  }
+    static validateSenderAndReceiver(senderId: string, receiverId: string): void {
+        if (!senderId || !receiverId) {
+            throw new MessageValidationException("Sender and receiver IDs are required");
+        }
 
-  private containsSpam(content: string): boolean {
-    const spamPatterns = [
-      /(?:https?:\/\/)?(?:www\.)?[a-z0-9-]+(?:\.[a-z]{2,}){1,}/gi,
-      /(free|money|cash|prize|winner|click here)/gi,
-      /([!$%^&*()_+|~=`{}\[\]:";'<>?,.\/]{5,})/,
-    ];
-
-    return spamPatterns.some((pattern) => pattern.test(content));
-  }
-
-  private containsMaliciousContent(content: string): boolean {
-    const maliciousPatterns = [
-      /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
-      /javascript:/gi,
-      /on\w+\s*=/gi,
-      /eval\(/gi,
-      /document\./gi,
-      /window\./gi,
-      /alert\(/gi,
-    ];
-
-    return maliciousPatterns.some((pattern) => pattern.test(content));
-  }
-
-  private isRateLimited(): boolean {
-    // Implementação genérica - deve ser sobrescrita com lógica específica
-    return true;
-  }
-
-  private updateRateLimit(senderId: string): void {
-    const now = Date.now();
-    const userMessages = this.lastMessageTimes.get(senderId) || [];
-
-    // Remover mensagens fora da janela de tempo
-    const recentMessages = userMessages.filter(
-      (time) => now - time < this.RATE_LIMIT_WINDOW
-    );
-
-    if (recentMessages.length >= this.RATE_LIMIT) {
-      throw new MessageValidationException(
-        "Rate limit exceeded. Please wait before sending more messages."
-      );
+        if (senderId === receiverId) {
+            throw new MessageValidationException("Sender and receiver cannot be the same");
+        }
     }
 
-    recentMessages.push(now);
-    this.lastMessageTimes.set(senderId, recentMessages);
-  }
+    static validateTimestamps(sentAt: Date, readAt?: Date): void {
+        if (readAt && readAt < sentAt) {
+            throw new MessageValidationException("Read timestamp cannot be before sent timestamp");
+        }
 
-  canSendMessage(senderId: string): boolean {
-    const userMessages = this.lastMessageTimes.get(senderId) || [];
-    const now = Date.now();
-    const recentMessages = userMessages.filter(
-      (time) => now - time < this.RATE_LIMIT_WINDOW
-    );
-
-    return recentMessages.length < this.RATE_LIMIT;
-  }
-
-  getRemainingMessages(senderId: string): number {
-    const userMessages = this.lastMessageTimes.get(senderId) || [];
-    const now = Date.now();
-    const recentMessages = userMessages.filter(
-      (time) => now - time < this.RATE_LIMIT_WINDOW
-    );
-
-    return Math.max(0, this.RATE_LIMIT - recentMessages.length);
-  }
-
-  resetRateLimit(senderId: string): void {
-    this.lastMessageTimes.delete(senderId);
-  }
+        if (sentAt > new Date()) {
+            throw new MessageValidationException("Sent timestamp cannot be in the future");
+        }
+    }
 }

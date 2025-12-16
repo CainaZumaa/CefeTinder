@@ -1,75 +1,39 @@
-import { IUser } from "../../../../types";
-
-export interface JoinValidation {
-  valid: boolean;
-  error?: string;
-}
-
-export interface MessageValidation {
-  valid: boolean;
-  error?: string;
-}
-
 export class ChatWebSocketMapper {
-  validateJoinRequest(room: string, email: string): JoinValidation {
-    if (!room || !email) {
-      return { valid: false, error: "Dados inválidos para entrar na sala" };
+    static toMessageResponse(message: any) {
+        return {
+            id: message.id,
+            content: message.content,
+            senderId: message.senderId,
+            receiverId: message.receiverId,
+            chatRoomId: message.chatRoomId,
+            sentAt: message.sentAt,
+            readAt: message.readAt,
+            isRead: message.isRead
+        };
     }
 
-    if (room.length > 50) {
-      return { valid: false, error: "Nome da sala muito longo" };
+    static toConversationResponse(conversation: any) {
+        return {
+            id: conversation.id,
+            participants: conversation.participants,
+            lastMessageAt: conversation.lastMessageAt,
+            messageCount: conversation.messageCount
+        };
     }
 
-    return { valid: true };
-  }
-
-  validateMessage(
-    user: IUser | undefined,
-    room: string,
-    texto: string
-  ): MessageValidation {
-    if (!user) {
-      return {
-        valid: false,
-        error: "Você precisa entrar em uma sala primeiro",
-      };
+    static toErrorResponse(error: Error) {
+        return {
+            error: error.name,
+            message: error.message,
+            timestamp: new Date().toISOString()
+        };
     }
 
-    if (!room) {
-      return { valid: false, error: "Sala não especificada" };
+    static toConnectionStatus(userId: string, status: string) {
+        return {
+            userId,
+            status,
+            timestamp: new Date().toISOString()
+        };
     }
-
-    const mensagemTrimmed = texto.trim();
-    if (!mensagemTrimmed) {
-      return { valid: false, error: "Mensagem vazia" };
-    }
-
-    if (mensagemTrimmed.length > 1000) {
-      return {
-        valid: false,
-        error: "Mensagem muito longa (máximo 1000 caracteres)",
-      };
-    }
-
-    return { valid: true };
-  }
-
-  mapToMessagePayload(user: IUser, texto: string) {
-    return {
-      de: user.name,
-      email: user.email,
-      texto,
-      ts: Date.now(),
-    };
-  }
-
-  mapToUserResponse(user: IUser | undefined) {
-    return user
-      ? {
-          name: user.name,
-          email: user.email,
-          id: user.id,
-        }
-      : null;
-  }
 }

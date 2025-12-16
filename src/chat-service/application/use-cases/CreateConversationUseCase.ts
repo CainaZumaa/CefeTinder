@@ -1,51 +1,22 @@
-export interface CreateConversationUseCase {
-  readonly creatorId: string;
-  readonly participantIds: string[];
-  readonly isGroup: boolean;
-  readonly groupName?: string;
-  readonly metadata?: Record<string, any>;
-  readonly correlationId?: string;
-}
+import { ChatRoomId } from "../../domain/value-objects/ChatRoomId";
+import { Conversation } from "../../domain/entities/Conversation";
+import { IConversationRepository } from "../../domain/repositories/IConversationRepository";
+import { ChatPolicy } from "../../domain/services/ChatPolicy";
 
-export class CreateConversationUseCase implements CreateConversationUseCase {
-  constructor(
-    public readonly creatorId: string,
-    public readonly participantIds: string[],
-    public readonly isGroup: boolean = false,
-    public readonly groupName?: string,
-    public readonly metadata?: Record<string, any>,
-    public readonly correlationId?: string
-  ) {
-    this.validate();
-  }
+export class CreateConversationUseCase {
+    constructor(private readonly conversationRepository: IConversationRepository) {}
 
-  private validate(): void {
-    if (!this.creatorId || this.creatorId.trim().length === 0) {
-      throw new Error("Creator ID is required");
-    }
-    if (!this.participantIds || this.participantIds.length === 0) {
-      throw new Error("At least one participant is required");
-    }
-    if (!this.participantIds.includes(this.creatorId)) {
-      this.participantIds.push(this.creatorId);
-    }
-    if (this.isGroup && this.participantIds.length < 2) {
-      throw new Error("Group must have at least 2 participants");
-    }
-    if (!this.isGroup && this.participantIds.length !== 2) {
-      throw new Error("Direct conversation must have exactly 2 participants");
-    }
-  }
+    async execute(id: string, participants: string[]): Promise<void> {
+        ChatPolicy.validateParticipantCount(participants.length);
 
-  toJSON(): Record<string, any> {
-    return {
-      creatorId: this.creatorId,
-      participantIds: this.participantIds,
-      isGroup: this.isGroup,
-      groupName: this.groupName,
-      metadata: this.metadata,
-      correlationId: this.correlationId,
-      timestamp: new Date().toISOString(),
-    };
-  }
+        const chatRoomId = new ChatRoomId(id);
+        const exists = await this.conversationRepository.exists(chatRoomId);
+        
+        if (exists) {
+            throw new Error("Conversation already exists");
+        }
+
+        const conversation = new Conversation(chatRoomId, participants);
+        await this.conversationRepository.save(conversation);
+    }
 }

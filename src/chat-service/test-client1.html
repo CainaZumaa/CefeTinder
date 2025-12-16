@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat WebSocket - Teste Completo</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .panel {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            flex: 1;
+            min-width: 300px;
+        }
+        
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .user-panel {
+            background: #f8f9fa;
+        }
+        
+        .room-panel {
+            background: #fff;
+        }
+        
+        .chat-panel {
+            background: #f8f9fa;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .user-select {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .user-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: #667eea;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .user-btn:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+        }
+        
+        .user-btn.active {
+            background: #764ba2;
+            box-shadow: 0 4px 8px rgba(118, 75, 162, 0.3);
+        }
+        
+        .room-select {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .room-btn {
+            padding: 15px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            background: white;
+            color: #667eea;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .room-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        .room-btn.active {
+            background: #764ba2;
+            border-color: #764ba2;
+            color: white;
+        }
+        
+        .action-btn {
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 8px;
+            background: #28a745;
+            color: white;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .action-btn:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+        
+        .action-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .action-btn.disconnect {
+            background: #dc3545;
+        }
+        
+        .action-btn.disconnect:hover {
+            background: #c82333;
+        }
+        
+        .status {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            background: #e7f3ff;
+            border-left: 4px solid #007bff;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+            color: #721c24;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            border-left-color: #28a745;
+            color: #155724;
+        }
+        
+        .chat-display {
+            flex: 1;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            overflow-y: auto;
+            background: white;
+            min-height: 300px;
+        }
+        
+        .message {
+            padding: 10px;
+            margin: 8px 0;
+            border-radius: 8px;
+            max-width: 80%;
+        }
+        
+        .message.sent {
+            background: #d1ecf1;
+            margin-left: auto;
+            border-bottom-right-radius: 2px;
+        }
+        
+        .message.received {
+            background: #f8f9fa;
+            border-bottom-left-radius: 2px;
+        }
+        
+        .message.system {
+            background: #fff3cd;
+            text-align: center;
+            max-width: 100%;
+            font-style: italic;
+        }
+        
+        .message-header {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        
+        .message-content {
+            word-wrap: break-word;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        #messageInput {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        #messageInput:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .send-btn {
+            padding: 12px 25px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .send-btn:hover {
+            background: #5a6fd8;
+        }
+        
+        .send-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .user-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .user-1 { background: #ff6b6b; }
+        .user-2 { background: #4ecdc4; }
+        .user-3 { background: #45b7d1; }
+        .user-4 { background: #96ceb4; }
+        
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .room-select {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>🏆 Chat System - Teste Completo</h1>
+    
+    <div class="container">
+        <!-- Painel de Usuários -->
+        <div class="panel user-panel">
+            <h2>👥 Selecione um Usuário</h2>
+            
+            <div class="user-select">
+                <button class="user-btn" data-user="user_1">Ana Silva</button>
+                <button class="user-btn" data-user="user_2">Bruno Costa</button>
+                <button class="user-btn" data-user="user_3">Carlos Lima</button>
+                <button class="user-btn" data-user="user_4">Daniela Souza</button>
+            </div>
+            
+            <div class="status" id="userStatus">
+                Selecione um usuário para começar
+            </div>
+            
+            <button class="action-btn" id="connectBtn" disabled>
+                🔌 Conectar ao Chat
+            </button>
+            
+            <button class="action-btn disconnect" id="disconnectBtn" disabled>
+                🔒 Desconectar
+            </button>
+        </div>
+        
+        <!-- Painel de Salas -->
+        <div class="panel room-panel">
+            <h2>🏠 Selecione uma Sala</h2>
+            
+            <div class="room-select">
+                <button class="room-btn" data-room="room_1">Sala 1 (Geral)</button>
+                <button class="room-btn" data-room="room_2">Sala 2 (Trabalho)</button>
+                <button class="room-btn" data-room="room_3">Sala 3 (Projetos)</button>
+                <button class="room-btn" data-room="room_4">Sala 4 (Social)</button>
+            </div>
+            
+            <div class="status" id="roomStatus">
+                Selecione uma sala para entrar
+            </div>
+            
+            <button class="action-btn" id="joinRoomBtn" disabled>
+                🚪 Entrar na Sala
+            </button>
+            
+            <button class="action-btn" id="leaveRoomBtn" disabled>
+                🚪 Sair da Sala
+            </button>
+        </div>
+        
+        <!-- Painel do Chat -->
+        <div class="panel chat-panel">
+            <h2>💬 Conversa</h2>
+            
+            <div class="status" id="chatStatus">
+                Aguardando conexão...
+            </div>
+            
+            <div class="chat-display" id="chatDisplay">
+                <!-- Mensagens aparecerão aqui -->
+            </div>
+            
+            <div class="input-group">
+                <input type="text" 
+                       id="messageInput" 
+                       placeholder="Digite sua mensagem..." 
+                       disabled>
+                <button class="send-btn" id="sendBtn" disabled>
+                    📤 Enviar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuração do WebSocket
+        const WS_URL = 'http://localhost:3000'; // Altere se necessário
+        
+        // Estado da aplicação
+        let socket = null;
+        let currentUser = null;
+        let currentRoom = null;
+        let isConnected = false;
+        
+        // Elementos DOM
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const joinRoomBtn = document.getElementById('joinRoomBtn');
+        const leaveRoomBtn = document.getElementById('leaveRoomBtn');
+        const sendBtn = document.getElementById('sendBtn');
+        const messageInput = document.getElementById('messageInput');
+        const chatDisplay = document.getElementById('chatDisplay');
+        const userStatus = document.getElementById('userStatus');
+        const roomStatus = document.getElementById('roomStatus');
+        const chatStatus = document.getElementById('chatStatus');
+        
+        // Dados dos usuários
+        const users = {
+            'user_1': { name: 'Ana Silva', color: 'user-1' },
+            'user_2': { name: 'Bruno Costa', color: 'user-2' },
+            'user_3': { name: 'Carlos Lima', color: 'user-3' },
+            'user_4': { name: 'Daniela Souza', color: 'user-4' }
+        };
+        
+        // Dados das salas
+        const rooms = {
+            'room_1': { name: 'Sala Geral', users: [] },
+            'room_2': { name: 'Sala de Trabalho', users: [] },
+            'room_3': { name: 'Sala de Projetos', users: [] },
+            'room_4': { name: 'Sala Social', users: [] }
+        };
+        
+        // ========== FUNÇÕES DE UI ==========
+        
+        // Selecionar usuário
+        document.querySelectorAll('.user-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Remover seleção anterior
+                document.querySelectorAll('.user-btn').forEach(b => b.classList.remove('active'));
+                
+                // Selecionar novo usuário
+                btn.classList.add('active');
+                currentUser = btn.dataset.user;
+                
+                userStatus.className = 'status success';
+                userStatus.innerHTML = `
+                    <span class="user-indicator ${users[currentUser].color}"></span>
+                    <strong>${users[currentUser].name}</strong> selecionado
+                `;
+                
+                // Habilitar botão de conexão
+                connectBtn.disabled = false;
+            });
+        });
+        
+        // Selecionar sala
+        document.querySelectorAll('.room-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Remover seleção anterior
+                document.querySelectorAll('.room-btn').forEach(b => b.classList.remove('active'));
+                
+                // Selecionar nova sala
+                btn.classList.add('active');
+                currentRoom = btn.dataset.room;
+                
+                roomStatus.className = 'status success';
+                roomStatus.innerHTML = `<strong>${rooms[currentRoom].name}</strong> selecionada`;
+                
+                // Habilitar botão de entrar na sala se estiver conectado
+                if (isConnected) {
+                    joinRoomBtn.disabled = false;
+                }
+            });
+        });
+        
+        // ========== FUNÇÕES DO WEBSOCKET ==========
+        
+        // Conectar ao WebSocket
+        connectBtn.addEventListener('click', () => {
+            if (!currentUser) {
+                showError(userStatus, 'Selecione um usuário primeiro');
+                return;
+            }
+            
+            try {
+                socket = new WebSocket(WS_URL);
+                
+                socket.onopen = () => {
+                    isConnected = true;
+                    chatStatus.className = 'status success';
+                    chatStatus.innerHTML = '✅ Conectado ao servidor WebSocket';
+                    
+                    // Atualizar UI
+                    connectBtn.disabled = true;
+                    disconnectBtn.disabled = false;
+                    joinRoomBtn.disabled = !currentRoom;
+                    
+                    addSystemMessage('✅ Conectado ao servidor');
+                };
+                
+                socket.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        handleWebSocketMessage(data);
+                    } catch (error) {
+                        console.error('Erro ao processar mensagem:', error);
+                    }
+                };
+                
+                socket.onerror = (error) => {
+                    showError(chatStatus, 'Erro na conexão WebSocket');
+                    console.error('WebSocket error:', error);
+                };
+                
+                socket.onclose = () => {
+                    isConnected = false;
+                    chatStatus.className = 'status error';
+                    chatStatus.innerHTML = '❌ Desconectado do servidor';
+                    
+                    // Atualizar UI
+                    connectBtn.disabled = false;
+                    disconnectBtn.disabled = true;
+                    joinRoomBtn.disabled = true;
+                    leaveRoomBtn.disabled = true;
+                    sendBtn.disabled = true;
+                    messageInput.disabled = true;
+                    
+                    addSystemMessage('❌ Desconectado do servidor');
+                };
+                
+            } catch (error) {
+                showError(chatStatus, `Erro: ${error.message}`);
+            }
+        });
+        
+        // Desconectar
+        disconnectBtn.addEventListener('click', () => {
+            if (socket) {
+                socket.close();
+            }
+        });
+        
+        // Entrar na sala
+        joinRoomBtn.addEventListener('click', () => {
+            if (!socket || !currentUser || !currentRoom) return;
+            
+            const joinData = {
+                event: 'join_conversation',
+                data: {
+                    conversationId: currentRoom,
+                    userId: currentUser
+                }
+            };
+            
+            socket.send(JSON.stringify(joinData));
+            addSystemMessage(`🚪 Entrando na ${rooms[currentRoom].name}...`);
+            
+            // Atualizar UI
+            joinRoomBtn.disabled = true;
+            leaveRoomBtn.disabled = false;
+            sendBtn.disabled = false;
+            messageInput.disabled = false;
+            messageInput.focus();
+        });
+        
+        // Sair da sala
+        leaveRoomBtn.addEventListener('click', () => {
+            addSystemMessage(`🚪 Saindo da ${rooms[currentRoom].name}`);
+            
+            // Atualizar UI
+            leaveRoomBtn.disabled = true;
+            joinRoomBtn.disabled = false;
+            sendBtn.disabled = true;
+            messageInput.disabled = true;
+            messageInput.value = '';
+        });
+        
+        // Enviar mensagem
+        sendBtn.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+        
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message || !socket || !currentUser || !currentRoom) return;
+            
+            const messageData = {
+                event: 'send_message',
+                data: {
+                    messageId: 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                    content: message,
+                    senderId: currentUser,
+                    receiverId: 'all', // Para broadcast
+                    chatRoomId: currentRoom
+                }
+            };
+            
+            socket.send(JSON.stringify(messageData));
+            
+            // Mostrar mensagem localmente imediatamente
+            addMessage({
+                senderId: currentUser,
+                content: message,
+                type: 'sent'
+            });
+            
+            messageInput.value = '';
+            messageInput.focus();
+        }
+        
+        // ========== HANDLERS DE MENSAGENS ==========
+        
+        function handleWebSocketMessage(data) {
+            console.log('Mensagem recebida:', data);
+            
+            if (data.event === 'join_success') {
+                chatStatus.className = 'status success';
+                chatStatus.innerHTML = `✅ Conectado na ${rooms[currentRoom].name}`;
+                addSystemMessage(`✅ Entrou na ${rooms[currentRoom].name}`);
+            }
+            else if (data.event === 'message_sent') {
+                // Mensagem enviada com sucesso
+                addSystemMessage('📤 Mensagem enviada com sucesso');
+            }
+            else if (data.event === 'message_sent_success') {
+                // Confirmação do servidor
+                addSystemMessage('✅ Servidor confirmou recebimento');
+            }
+            else if (data.event === 'message_sent' && data.data) {
+                // Outro usuário enviou mensagem
+                if (data.data.senderId !== currentUser) {
+                    addMessage({
+                        senderId: data.data.senderId,
+                        content: data.data.content,
+                        type: 'received'
+                    });
+                }
+            }
+            else if (data.event === 'user_joined') {
+                // Outro usuário entrou na sala
+                if (data.userId !== currentUser) {
+                    addSystemMessage(`👋 ${users[data.userId]?.name || data.userId} entrou na sala`);
+                }
+            }
+            else if (data.event === 'notification') {
+                // Notificação do sistema
+                addSystemMessage(`📢 ${data.type}: ${JSON.stringify(data.data)}`);
+            }
+            else if (data.event === 'error') {
+                // Erro do servidor
+                showError(chatStatus, `Erro: ${data.message || 'Desconhecido'}`);
+                addSystemMessage(`❌ Erro: ${data.message || 'Desconhecido'}`);
+            }
+        }
+        
+        // ========== FUNÇÕES AUXILIARES ==========
+        
+        function addMessage({ senderId, content, type }) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            
+            const user = users[senderId] || { name: senderId, color: 'user-1' };
+            
+            messageDiv.innerHTML = `
+                <div class="message-header">
+                    <span class="user-indicator ${user.color}"></span>
+                    ${user.name} (${type === 'sent' ? 'Você' : 'Remetente'})
+                </div>
+                <div class="message-content">${escapeHtml(content)}</div>
+            `;
+            
+            chatDisplay.appendChild(messageDiv);
+            chatDisplay.scrollTop = chatDisplay.scrollHeight;
+        }
+        
+        function addSystemMessage(text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message system';
+            messageDiv.textContent = text;
+            
+            chatDisplay.appendChild(messageDiv);
+            chatDisplay.scrollTop = chatDisplay.scrollHeight;
+        }
+        
+        function showError(element, message) {
+            element.className = 'status error';
+            element.textContent = message;
+            
+            // Remover após 5 segundos
+            setTimeout(() => {
+                element.className = 'status';
+                element.textContent = '';
+            }, 5000);
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // ========== INICIALIZAÇÃO ==========
+        
+        // Configurar exemplo de mensagens iniciais
+        window.addEventListener('load', () => {
+            addSystemMessage('💬 Bem-vindo ao Chat System Test');
+            addSystemMessage('1. Selecione um usuário');
+            addSystemMessage('2. Clique em "Conectar ao Chat"');
+            addSystemMessage('3. Selecione uma sala');
+            addSystemMessage('4. Clique em "Entrar na Sala"');
+            addSystemMessage('5. Comece a conversar!');
+        });
+    </script>
+</body>
+</html>

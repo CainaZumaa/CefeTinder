@@ -1,23 +1,48 @@
-import { Pool } from "pg";
-import dotenv from "dotenv";
+import { Pool, PoolClient } from 'pg';
 
-dotenv.config();
+export class DatabaseConnection {
+    private pool: Pool;
+    private client: PoolClient | null = null;
 
-//Configuração de conexão com banco de dados
-//Camada de Infrastructure
-//Banco específico do UserService (Database per Service)
+    constructor(config: any) {
+        this.pool = new Pool(config);
+    }
 
-// Usa USER_SERVICE_DATABASE_URL se disponível, senão usa DATABASE_URL como fallback
-const databaseUrl =
-  process.env.USER_SERVICE_DATABASE_URL || process.env.DATABASE_URL;
+    async connect(): Promise<PoolClient> {
+        if (!this.client) {
+            this.client = await this.pool.connect();
+        }
+        return this.client;
+    }
 
-if (!databaseUrl) {
-  throw new Error(
-    "Missing USER_SERVICE_DATABASE_URL or DATABASE_URL environment variable"
-  );
+    async query(text: string, params?: any[]): Promise<any> {
+        const client = await this.connect();
+        return client.query(text, params);
+    }
+
+    async beginTransaction(): Promise<void> {
+        const client = await this.connect();
+        await client.query('BEGIN');
+    }
+
+    async commit(): Promise<void> {
+        const client = await this.connect();
+        await client.query('COMMIT');
+    }
+
+    async rollback(): Promise<void> {
+        const client = await this.connect();
+        await client.query('ROLLBACK');
+    }
+
+    async release(): Promise<void> {
+        if (this.client) {
+            this.client.release();
+            this.client = null;
+        }
+    }
+
+    async close(): Promise<void> {
+        await this.pool.end();
+    }
 }
-
-export const pool = new Pool({
-  connectionString: databaseUrl,
-  ssl: false,
-});

@@ -1,40 +1,21 @@
 export class Content {
-  private readonly content: string;
-  private readonly MAX_LENGTH = 5000;
+    readonly value: string;
 
-  private constructor(content: string) {
-    if (!content || content.trim().length === 0) {
-      throw new Error('Content cannot be empty');
+    constructor(value: string) {
+        if (!value || value.trim().length === 0) {
+            throw new Error("Content cannot be empty");
+        }
+        if (value.length > 2000) {
+            throw new Error("Content cannot exceed 2000 characters");
+        }
+        this.value = value.trim();
     }
-    if (content.length > this.MAX_LENGTH) {
-      throw new Error(`Content cannot exceed ${this.MAX_LENGTH} characters`);
+
+    equals(other: Content): boolean {
+        return this.value === other.value;
     }
-    
-    // Remove excess whitespace but preserve intentional formatting
-    this.content = content.trim();
-  }
 
-  static create(content: string): Content {
-    return new Content(content);
-  }
-
-  get value(): string {
-    return this.content;
-  }
-
-  get length(): number {
-    return this.content.length;
-  }
-
-  isEmpty(): boolean {
-    return this.content.length === 0;
-  }
-
-  equals(other: Content): boolean {
-    return this.content === other.value;
-  }
-
-  toString(): string {
-    return this.content;
-  }
+    toString(): string {
+        return this.value;
+    }
 }

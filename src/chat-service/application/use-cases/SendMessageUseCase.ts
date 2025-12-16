@@ -1,54 +1,68 @@
-export interface SendMessageUseCase {
-  readonly senderId: string;
-  readonly receiverId: string;
-  readonly roomId: string;
-  readonly content: string;
-  readonly replyTo?: string;
-  readonly metadata?: Record<string, any>;
-  readonly correlationId?: string;
-}
+import { MessageId } from "../../domain/value-objects/MessageId";
+import { Content } from "../../domain/value-objects/Content";
+import { SenderId } from "../../domain/value-objects/SenderId";
+import { ReceiverId } from "../../domain/value-objects/ReceiverId";
+import { ChatRoomId } from "../../domain/value-objects/ChatRoomId";
+import { Timestamp } from "../../domain/value-objects/Timestamp";
+import { Message } from "../../domain/entities/Message";
+import { IMessageRepository } from "../../domain/repositories/IMessageRepository";
+import { IConversationRepository } from "../../domain/repositories/IConversationRepository";
+import { MessageValidator } from "../../domain/services/MessageValidator";
+import { ChatPolicy } from "../../domain/services/ChatPolicy";
+import { EventBus } from "../ports/EventBus";
+import { MessageMapper } from "../mappers/MessageMapper";
+import { MessageDTO } from "../dtos/MessageDTO";
 
-export class SendMessageUseCase implements SendMessageUseCase {
-  constructor(
-    public readonly senderId: string,
-    public readonly receiverId: string,
-    public readonly roomId: string,
-    public readonly content: string,
-    public readonly replyTo?: string,
-    public readonly metadata?: Record<string, any>,
-    public readonly correlationId?: string
-  ) {
-    this.validate();
-  }
+export class SendMessageUseCase {
+    constructor(
+        private readonly messageRepository: IMessageRepository,
+        private readonly conversationRepository: IConversationRepository,
+        private readonly eventBus: EventBus
+    ) {}
 
-  private validate(): void {
-    if (!this.senderId || this.senderId.trim().length === 0) {
-      throw new Error("Sender ID is required");
-    }
-    if (!this.receiverId || this.receiverId.trim().length === 0) {
-      throw new Error("Receiver ID is required");
-    }
-    if (!this.roomId || this.roomId.trim().length === 0) {
-      throw new Error("Room ID is required");
-    }
-    if (!this.content || this.content.trim().length === 0) {
-      throw new Error("Content is required");
-    }
-    if (this.content.length > 5000) {
-      throw new Error("Content cannot exceed 5000 characters");
-    }
-  }
+    async execute(
+        messageId: string,
+        content: string,
+        senderId: string,
+        receiverId: string,
+        chatRoomId: string,
+        sentAt: Date = new Date()
+    ): Promise<MessageDTO> {
+        MessageValidator.validateContent(content);
+        MessageValidator.validateSenderAndReceiver(senderId, receiverId);
+        MessageValidator.validateTimestamps(sentAt);
 
-  toJSON(): Record<string, any> {
-    return {
-      senderId: this.senderId,
-      receiverId: this.receiverId,
-      roomId: this.roomId,
-      content: this.content,
-      replyTo: this.replyTo,
-      metadata: this.metadata,
-      correlationId: this.correlationId,
-      timestamp: new Date().toISOString(),
-    };
-  }
+        const conversation = await this.conversationRepository.findById(new ChatRoomId(chatRoomId));
+        if (!conversation) {
+            throw new Error("Conversation not found");
+        }
+
+        const existingMessages = await this.messageRepository.findByChatRoomId(new ChatRoomId(chatRoomId));
+        ChatPolicy.validateMessageCount(existingMessages.length);
+
+        const messageTimestamps = existingMessages.map(m => m.sentAt.value);
+        ChatPolicy.validateMessageRate(messageTimestamps, sentAt);
+
+        const message = new Message(
+            new MessageId(messageId),
+            new Content(content),
+            new SenderId(senderId),
+            new ReceiverId(receiverId),
+            new ChatRoomId(chatRoomId),
+            new Timestamp(sentAt)
+        );
+
+        conversation.addMessage(message);
+        
+        await this.messageRepository.save(message);
+        await this.conversationRepository.update(conversation);
+
+        const events = conversation.domainEvents;
+        for (const event of events) {
+            await this.eventBus.publish(event);
+        }
+        conversation.clearEvents();
+
+        return MessageMapper.toDTO(message);
+    }
 }
