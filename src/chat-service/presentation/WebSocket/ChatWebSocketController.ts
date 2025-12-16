@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { ChatWebSocketMapper } from './mappers/ChatWebSocketMapper';
-import { Container } from '../Conteiner';
+import { Container } from '../conteiner';
 
 export class ChatWebSocketController {
     private sendMessageUseCase: any;

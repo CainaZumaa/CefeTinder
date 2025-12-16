@@ -19,7 +19,7 @@ export function setupWebSocketHandlers(io: Server): void {
         // Não falha a aplicação - continua sem WebSocket
     }
     
-    // Configuração de eventos É OPCIONAL
+
     setupEventSubscriptionsSafe(io);
 }
 

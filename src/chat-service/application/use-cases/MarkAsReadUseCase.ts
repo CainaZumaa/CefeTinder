@@ -10,14 +10,14 @@ export class MarkAsReadUseCase {
         private readonly eventBus: EventBus
     ) {}
 
-    async execute(messageId: string, readerId: string): Promise<MessageDTO> {
+    async execute(messageId: string, receiverId: string): Promise<MessageDTO> {
         const message = await this.messageRepository.findById(new MessageId(messageId));
         
         if (!message) {
             throw new Error("Message not found");
         }
 
-        message.markAsRead(readerId);
+        message.markAsRead(receiverId);
         
         await this.messageRepository.update(message);
 

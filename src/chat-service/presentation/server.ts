@@ -1,49 +1,57 @@
-// presentation/WebSocket/server-simple.ts
-import { createServer } from 'http';
-import { Server } from 'socket.io';
-import express from 'express';
+import { WebSocketServer, WebSocket } from "ws";
+import { setupWebSocketHandlers } from "./setup";
 
-const app = express();
-const server = createServer(app);
 
-app.get('/health', (req, res) => {
-    res.json({ status: 'ok', websocket: 'socket.io' });
-});
+const wss = new WebSocketServer({ port: 3000 });
 
-const io = new Server(server, {
-    cors: { origin: '*' }
-});
-
-// Handler MÍNIMO que sempre funciona
-io.on('connection', (socket) => {
-    console.log(' Cliente conectado:', socket.id);
-    
-    // Echo simples
-    socket.onAny((eventName, ...args) => {
-        console.log(` Evento: ${eventName}`, args);
-        socket.emit(eventName + '_response', { 
-            received: true, 
-            data: args,
-            timestamp: new Date().toISOString()
-        });
+wss.on("connection", (ws: WebSocket) => {
+  const clientId = Math.random().toString(36).substring(7);
+  
+  console.log(`Cliente conectado: ${clientId}`);
+  
+  // Envia mensagem de boas-vindas
+  ws.send(JSON.stringify({
+    type: "welcome",
+    clientId,
+    timestamp: new Date().toISOString()
+  }));
+  
+  ws.on("message", (data: Buffer) => {
+      try {
+      const message = JSON.parse(data.toString());
+      console.log(` Mensagem de ${clientId}:`, message);
+      
+      // Ecoa a mensagem de volta
+      ws.send(JSON.stringify({
+          type: "echo",
+        original: message,
+        timestamp: new Date().toISOString()
+      }));
+    } catch {
+      // Se não for JSON, trata como texto simples
+      const text = data.toString();
+      console.log(`Texto de ${clientId}: ${text}`);
+      
+      ws.send(`Recebido: "${text}"`);
+    }
+  });
+  
+  ws.on("close", () => {
+      console.log(` Cliente desconectado: ${clientId}`);
+  });
+  
+  ws.on("error", (error) => {
+      console.error(` Erro no cliente ${clientId}:`, error);
     });
-    
-    // Eventos específicos do chat
-    socket.on('join_conversation', (data) => {
-        console.log('Usuário entrou:', data);
-        socket.join(`room_${data.conversationId}`);
-        socket.emit('join_success', { room: data.conversationId });
-    });
-    
-    socket.on('send_message', (data) => {
-        console.log(' Mensagem:', data);
-        io.to(`room_${data.chatRoomId}`).emit('new_message', data);
-        socket.emit('message_sent', { success: true, id: data.messageId });
+});
+
+// Graceful shutdown
+process.on("SIGINT", () => {
+    console.log("\n Finalizando servidor...");
+  wss.close(() => {
+      console.log("Servidor finalizado");
+      process.exit(0);
     });
 });
 
-const PORT = process.env.PORT || 8080;
-
-server.listen(PORT, () => {
-    console.log(`CHAT SERVER :${PORT}`);
-});
+setupWebSocketHandlers(wss);

@@ -9,6 +9,9 @@ import { DatabaseConnection } from "../infrastructure/database/DatabaseConnectio
 import { PostgresChatRepositoryExtended } from "../infrastructure/persistence/PostgresChatRepositoryExtended";
 
 export class Container {
+    shutdown() {
+      throw new Error('Method not implemented.');
+    }
     private static instance: Container | null = null;
     private dependencies = new Map<string, any>();
 
@@ -107,7 +110,7 @@ export class Container {
             publish: async (event: any) => {
                 console.log(` [MOCK] Evento publicado: ${event.constructor?.name || 'Unknown'}`);
             },
-            subscribe: async (eventName: string, handler: Function) => {
+            subscribe: async (eventName: string) => {
                 console.log(`[MOCK] Inscrito em: ${eventName}`);
             }
         };
